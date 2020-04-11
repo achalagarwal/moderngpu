@@ -49,6 +49,9 @@ void mergesort(key_t* keys_input, val_t* vals_input, int count,
   mem_t<val_t> vals_temp(has_values && num_passes ? count : 0, context);
   val_t* vals_output = vals_temp.data();
 
+  // is the c++ compiler not smart enough to realise that 
+  // a % 2 is faster with a & 1?
+  // why encrypt code :(
   key_t* keys_blocksort = (1 & num_passes) ? keys_output : keys_input;
   val_t* vals_blocksort = (1 & num_passes) ? vals_output : vals_input;
 
@@ -120,17 +123,59 @@ void mergesort(key_t* keys_input, val_t* vals_input, int count,
       reg_to_mem_thread<nt>(merge.keys, tid, tile.count(), 
         keys_output + tile.begin, shared.keys);
 
-      if(has_values) {
-        // Transpose the indices from thread order to strided order.
-        array_t<int, vt> indices = reg_thread_to_strided<nt>(merge.indices,
-          tid, shared.indices);
+      // if(has_values) {
+      //   // Transpose the indices from thread order to strided order.
+      //   array_t<int, vt> indices = reg_thread_to_strided<nt>(merge.indices,
+      //     tid, shared.indices);
 
-        // Gather the input values and merge into the output values.
-        transfer_two_streams_strided<nt>(vals_input + range.a_begin, 
-          range.a_count(), vals_input + range.b_begin, range.b_count(),
-          indices, tid, vals_output + tile.begin);
-      }
+      //   // Gather the input values and merge into the output values.
+      //   transfer_two_streams_strided<nt>(vals_input + range.a_begin, 
+      //     range.a_count(), vals_input + range.b_begin, range.b_count(),
+      //     indices, tid, vals_output + tile.begin);
+      // }
     };
+
+    // if this is the last pass, then this is the final merge
+    // ofcourse we need to hook in here and get the run length encoding
+    // from that final array we can get the max!!!!
+
+    // for this we will redefine k to our liking
+    if(pass == num_passes-1){
+      auto k = [=] MGPU_DEVICE(int tid, int cta) {
+      typedef typename launch_t::sm_ptx params_t;
+      enum { nt = params_t::nt, vt = params_t::vt, nv = nt * vt };
+
+      __shared__ union {
+        key_t keys[nv + 1];
+        int indices[nv];
+      } shared;
+
+      range_t tile = get_tile(cta, nv, count);
+
+      // Load the range for this CTA and merge the values into register.
+      merge_range_t range = compute_mergesort_range(count, cta, coop, nv, 
+        mp_data[cta + 0], mp_data[cta + 1]);
+
+      key_t answer = cta_merge_from_mem_special<bounds_lower, nt, vt>(
+        keys_input, keys_input, range, tid, comp, shared.keys);
+
+      // Store merged values back out.
+      shared.keys[0] = answer;
+      // reg_to_mem_thread<nt>(merge.keys, tid, tile.count(), 
+      //   keys_output + tile.begin, shared.keys);
+
+      // if(has_values) {
+      //   // Transpose the indices from thread order to strided order.
+      //   array_t<int, vt> indices = reg_thread_to_strided<nt>(merge.indices,
+      //     tid, shared.indices);
+
+      //   // Gather the input values and merge into the output values.
+      //   transfer_two_streams_strided<nt>(vals_input + range.a_begin, 
+      //     range.a_count(), vals_input + range.b_begin, range.b_count(),
+      //     indices, tid, vals_output + tile.begin);
+      // }
+    };
+    }
     cta_transform<launch_t>(k, count, context);
 
     std::swap(keys_input, keys_output);

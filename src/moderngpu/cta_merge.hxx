@@ -49,6 +49,27 @@ MGPU_HOST_DEVICE bool merge_predicate(type_t a_key, type_t b_key,
   return p;
 }
 
+// triple valued predicate for merge
+// not useful
+template<bounds_t bounds, bool range_check, typename type_t, typename comp_t>
+MGPU_HOST_DEVICE int merge_triple_predicate(type_t a_key, type_t b_key, 
+  merge_range_t range, comp_t comp) {
+
+  int p;
+  if(range_check && !range.a_valid()) p = false;
+  else if(range_check && !range.b_valid()) p = true;
+
+  // the comp is usually less_t 
+  // here we need to use < = and >
+  // so comp x,y replaced by y minus x
+
+  // final comment:
+  // we need to check higher in the stack
+  // as subtraction logic fails when we have invalid ranges above
+  else p = (bounds_upper == bounds) ? b_key - a_key : !comp(b_key, a_key);
+  return p;
+}
+
 MGPU_HOST_DEVICE merge_range_t compute_merge_range(int a_count, int b_count,
   int partition, int spacing, int mp0, int mp1) {
 
@@ -148,24 +169,35 @@ MGPU_DEVICE void transfer_two_streams_strided(a_it a, int a_count, b_it b,
   reg_to_mem_strided<nt>(x, tid, a_count + b_count, c);
 }
 
+// so there are multiple ways to perform the same function and that depends on where you want to perform it, which memory we are using, they are used to define
+// params like how parallelisable the problem is and so on
 
 // This function must be able to dereference keys[a_begin] and keys[b_begin],
 // no matter the indices for each. The caller should allocate at least 
 // nt * vt + 1 elements for 
+
 template<bounds_t bounds, int vt, typename type_t, typename comp_t>
 MGPU_DEVICE merge_pair_t<type_t, vt> 
 serial_merge(const type_t* keys_shared, merge_range_t range, comp_t comp, 
   bool sync = true) {
 
+  // so this is the main merge where we need to incorporate our extra information
+  // for computing mode
+
   type_t a_key = keys_shared[range.a_begin];
   type_t b_key = keys_shared[range.b_begin];
 
   merge_pair_t<type_t, vt> merge_pair;
+
   iterate<vt>([&](int i) {
+
     bool p = merge_predicate<bounds, true>(a_key, b_key, range, comp);
+
     int index = p ? range.a_begin : range.b_begin;
 
+
     merge_pair.keys[i] = p ? a_key : b_key;
+
     merge_pair.indices[i] = index;
 
     type_t c_key = keys_shared[++index];
@@ -175,6 +207,73 @@ serial_merge(const type_t* keys_shared, merge_range_t range, comp_t comp,
 
   if(sync) __syncthreads();
   return merge_pair;
+}
+
+
+template<bounds_t bounds, int vt, typename type_t, typename comp_t>
+MGPU_DEVICE type_t
+serial_merge_special(const type_t* keys_shared, merge_range_t range, comp_t comp, 
+  bool sync = true) {
+
+  // so this is the main merge where we need to incorporate our extra information
+  // for computing mode
+
+  type_t a_key = keys_shared[range.a_begin];
+  type_t b_key = keys_shared[range.b_begin];
+
+  merge_pair_t<type_t, vt> merge_pair;
+
+  // assuming this is efficient
+  int counter = 1;
+  // assuming that there exists atleast one key in the merge_pair
+  int max_counter = 1;
+  type_t best_key = merge_pair.keys[0];
+  // could probably be done without using a counter
+  iterate<vt>([&](int i) {
+
+    // i need another counter in this iterator
+    // not sure if its supposed to be parallelised and we can't count
+    // in a straight forward fashion
+
+    // i is incremented every iteration from 0 and vt times
+
+    bool p = merge_predicate<bounds, true>(a_key, b_key, range, comp);
+    // we set the index value depending on the comparator
+    int index = p ? range.a_begin : range.b_begin;
+
+    
+    // the keys hold the value and the index is a more 
+    // global value
+    merge_pair.keys[i] = p ? a_key : b_key;
+
+    // if we store the above value in a register is it better?
+
+    if(i>1 && merge_pair.keys[i-1] == merge_pair.keys[i])counter++;
+
+    if(i>1 && merge_pair.keys[i-1] != merge_pair.keys[i]){
+      if(counter>max_counter){
+        max_counter = counter;
+        best_key = merge_pair.keys[i-1];
+      }
+      counter=1;
+
+    }
+
+
+    // do we use multiple statements in one if or multiple ifs with one statement?
+      
+    
+    merge_pair.indices[i] = index;
+
+    type_t c_key = keys_shared[++index];
+    if(p) a_key = c_key, range.a_begin = index;
+    else b_key = c_key, range.b_begin = index;
+  });
+
+  if(sync) __syncthreads();
+
+  return best_key;
+  //return merge_pair;
 }
 
 // Load arrays a and b from global memory and merge into register.
@@ -201,6 +300,36 @@ cta_merge_from_mem(a_it a, b_it b, merge_range_t range_mem, int tid,
   // of the range are inaccurate, but still facilitate exact merging, because
   // only vt elements will be merged.
   merge_pair_t<type_t, vt> merged = serial_merge<bounds, vt>(keys_shared,
+    range_local.partition(mp, diag), comp);
+
+  return merged;
+};
+
+template<bounds_t bounds, int nt, int vt, typename a_it, typename b_it, 
+  typename type_t, typename comp_t, int shared_size>
+MGPU_DEVICE type_t 
+
+// special is the last iteration of the sort
+cta_merge_from_mem_special(a_it a, b_it b, merge_range_t range_mem, int tid, 
+  comp_t comp, type_t (&keys_shared)[shared_size]) {
+
+  static_assert(shared_size >= nt * vt + 1, 
+    "cta_merge_from_mem requires temporary storage of at "
+    "least nt * vt + 1 items");
+
+  // Load the data into shared memory.
+  load_two_streams_shared<nt, vt>(a + range_mem.a_begin, range_mem.a_count(),
+    b + range_mem.b_begin, range_mem.b_count(), tid, keys_shared, true);
+
+  // Run a merge path to find the start of the serial merge for each thread.
+  merge_range_t range_local = range_mem.to_local();
+  int diag = vt * tid;
+  int mp = merge_path<bounds>(keys_shared, range_local, diag, comp);
+
+  // Compute the ranges of the sources in shared memory. The end iterators
+  // of the range are inaccurate, but still facilitate exact merging, because
+  // only vt elements will be merged.
+  type_t merged = serial_merge_special<bounds, vt>(keys_shared,
     range_local.partition(mp, diag), comp);
 
   return merged;
