@@ -119,6 +119,30 @@ MGPU_DEVICE void reg_to_mem_thread(array_t<type_t, vt> x, int tid,
 
 template<int nt, int vt, int vt0 = vt, typename type_t, typename it_t, 
   int shared_size>
+MGPU_DEVICE void reg_to_mem_thread_special(array_t<type_t, vt> x, int tid,
+  int count, it_t mem, type_t (&shared)[shared_size]) {
+
+  // so as the threads transfer their register arrays to the shared memory
+  // can we make sure about the order in which they go?
+  // atleast I would like to know where in the shared memory my answer is
+  
+  reg_to_shared_thread<nt>(x, tid, shared);
+  // lets say that my answer was at i in the register array, it is now at
+  // tid*vt + i in the shared mem array
+
+  // this brings back the values in a strided fashion
+  // and due to the point below , we cannot change this either
+  // because connecting nt with vt is not simple
+  array_t<type_t, vt> y = shared_to_reg_strided<nt, vt>(shared, tid);
+  
+  // this is optimised as it performs coalesced writes
+  // and we cannot mess with this function
+
+  reg_to_mem_strided<nt, vt, vt0>(y, tid, count, mem);
+}
+
+template<int nt, int vt, int vt0 = vt, typename type_t, typename it_t, 
+  int shared_size>
 MGPU_DEVICE array_t<type_t, vt> mem_to_reg_thread(it_t mem, int tid,
   int count, type_t (&shared)[shared_size]) {
 
