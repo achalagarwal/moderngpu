@@ -59,6 +59,7 @@ public:
       strided_iterate<nt, vt>([&](int i, int j) {
         int index = tile.begin + j;
         bool stream = f(index);
+        // create the bit mask
         if(stream) stream_bits |= 1<< i;
       }, tid, tile.count());
 

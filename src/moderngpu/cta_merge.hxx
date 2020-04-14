@@ -211,7 +211,7 @@ serial_merge(const type_t* keys_shared, merge_range_t range, comp_t comp,
 
 
 template<bounds_t bounds, int vt, typename type_t, typename comp_t>
-MGPU_DEVICE type_t
+MGPU_DEVICE merge_pair_t<type_t, vt> 
 serial_merge_special(const type_t* keys_shared, merge_range_t range, comp_t comp, 
   bool sync = true) {
 
@@ -224,11 +224,24 @@ serial_merge_special(const type_t* keys_shared, merge_range_t range, comp_t comp
   merge_pair_t<type_t, vt> merge_pair;
 
   // assuming this is efficient
-  int counter = 1;
-  // assuming that there exists atleast one key in the merge_pair
-  int max_counter = 1;
-  type_t best_key = merge_pair.keys[0];
-  // could probably be done without using a counter
+  // int counter = 1;
+  // counter is not required as current_index(of not equals) - start_index is the count
+  int start_index = 0;
+
+  // I need three run length encodings
+  // the first element, the last element and the best amongst them
+  // but as I cannot distinguish between the last and the middle ones
+  // without a lot of pointer manipulations
+  // i shall perform the run length encoding for every element
+  // now this requires the previous thought processes
+  // we need the tuple structure
+  // if its a negative, then that absolute value is the count and the previous element is the element
+  // and typically when we merge two neighbouring entities
+  // we would make a negative --> positive to show that those elements have been counted
+  // so to fix the neighbouring edge cases
+  // we would need the first element to be updated, for uniformity we set rle in the beginning always
+  // typically we would ignore values 
+
   iterate<vt>([&](int i) {
 
     // i need another counter in this iterator
@@ -248,15 +261,21 @@ serial_merge_special(const type_t* keys_shared, merge_range_t range, comp_t comp
 
     // if we store the above value in a register is it better?
 
-    if(i>1 && merge_pair.keys[i-1] == merge_pair.keys[i])counter++;
+    if(i>1 && (merge_pair.keys[i-1] != merge_pair.keys[i])){
+      // can this be done without an if?
+      // using the math
+      // i.e. i-start_index-1 == 0 and otherwise
+      // or that i - start_index -2 is negative
+      if(i-start_index>1){
+        // here we set it equal to a negative value to denote that its a count
+        merge_pair.keys[start_index] =  -(i - start_index);
+        start_index = i;
 
-    if(i>1 && merge_pair.keys[i-1] != merge_pair.keys[i]){
-      if(counter>max_counter){
-        max_counter = counter;
-        best_key = merge_pair.keys[i-1];
       }
-      counter=1;
+    }
 
+    else if(i==vt-1 && merge_pair.keys[i-1] == merge_pair.keys[i]){
+     merge_pair.keys[start_index] =  -(i - start_index + 1);
     }
 
 
@@ -272,8 +291,8 @@ serial_merge_special(const type_t* keys_shared, merge_range_t range, comp_t comp
 
   if(sync) __syncthreads();
 
-  return best_key;
-  //return merge_pair;
+  // return best_key;
+  return merge_pair;
 }
 
 // Load arrays a and b from global memory and merge into register.

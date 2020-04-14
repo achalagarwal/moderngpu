@@ -95,6 +95,27 @@ struct plus_t : public std::binary_function<type_t, type_t, type_t> {
   }
 };
 
+template<typename type_t, quad_t>
+struct perform_t: public std::binary_function<quad_t, type_t, quad_t> {
+  MGPU_HOST_DEVICE quad_t operator(quad_t a, type_t b) const {
+    // a: best-count, current-count, current-element, best-element
+    if(a.current_element == b){
+      a.current_count++;
+      return a;
+    }
+    else{
+      // not creating a new struct because of the assumption that there stack memory might not work as in CPU
+      a.best_count = a.current_count > a.best_count? a.current_count: a.best_count;
+      a.best_element = a.current_count > a.best_count? a.current_element: a.best_element;
+      a.current_element = b;
+      a.current_count = 1; 
+      return a;
+    }
+  }
+};
+
+// template<typename type_t>
+
 template<typename type_t>
 struct minus_t : public std::binary_function<type_t, type_t, type_t> {
 	MGPU_HOST_DEVICE type_t operator()(type_t a, type_t b) const {

@@ -17,6 +17,8 @@
         "ostream": "cpp",
         "sstream": "cpp",
         "streambuf": "cpp",
-        "tuple": "cpp"
+        "tuple": "cpp",
+        "exception": "cpp",
+        "limits": "cpp"
     }
 }

@@ -35,9 +35,19 @@ void reduce(input_it input, int count, output_it reduction, op_t op,
       tid, tile.count());
 
     // Reduce the multiple values per thread into a scalar.
-    type_t scalar;
+
+    
+    typedef struct{
+      type_t best_count;
+      type_t current_count;
+      type_t current_element;
+      type_t best_element;
+    } quad;
+
+    quad scalar;
+
     strided_iterate<nt, vt>([&](int i, int j) {
-      scalar = i ? op(scalar, x[i]) : x[0];
+      scalar = i ? op(scalar, x[i]) : {1,1, x[0], x[0]};
     }, tid, tile.count());
 
     // Reduce to a scalar per CTA.

@@ -15,8 +15,16 @@ int main(int argc, char** argv) {
       fill(1, count, context);
     const int* input_data = input.data();
 
-    mem_t<int> reduction(1, context);
+    typedef struct{
+      type_t best_count;
+      type_t current_count;
+      type_t current_element;
+      type_t best_element;
+    } quad;
 
+    mem_t<quad> reduction(1, context);
+
+    printf("Is there an error? %d", reduction.data().at(0).current_count);
     reduce<launch_t>(input_data, count, reduction.data(), plus_t<int>(), 
       context);
     context.synchronize();
