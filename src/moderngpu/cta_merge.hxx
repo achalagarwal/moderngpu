@@ -250,7 +250,7 @@ serial_merge_special(const type_t* keys_shared, merge_range_t range, comp_t comp
 
     if(i>1 && merge_pair.keys[i-1] == merge_pair.keys[i])counter++;
 
-    if(i>1 && merge_pair.keys[i-1] != merge_pair.keys[i]){
+    if(i>1 && (merge_pair.keys[i-1] != merge_pair.keys[i] || i==vt-1 )){
       if(counter>max_counter){
         max_counter = counter;
         best_key = merge_pair.keys[i-1];

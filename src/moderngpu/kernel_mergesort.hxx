@@ -100,7 +100,7 @@ void mergesort(key_t* keys_input, val_t* vals_input, int count,
     mem_t<int> partitions = merge_sort_partitions(keys_input, count, coop,
       nv, comp, context);
     int* mp_data = partitions.data();
-
+	if(pass<num_passes-1){	
     auto k = [=] MGPU_DEVICE(int tid, int cta) {
       typedef typename launch_t::sm_ptx params_t;
       enum { nt = params_t::nt, vt = params_t::vt, nv = nt * vt };
@@ -134,6 +134,7 @@ void mergesort(key_t* keys_input, val_t* vals_input, int count,
       //     indices, tid, vals_output + tile.begin);
       // }
     };
+	}
 
     // if this is the last pass, then this is the final merge
     // ofcourse we need to hook in here and get the run length encoding
@@ -141,7 +142,9 @@ void mergesort(key_t* keys_input, val_t* vals_input, int count,
 
     // for this we will redefine k to our liking
     if(pass == num_passes-1){
+	    printf("HERE");
       auto k = [=] MGPU_DEVICE(int tid, int cta) {
+	      printf("THERE");
       typedef typename launch_t::sm_ptx params_t;
       enum { nt = params_t::nt, vt = params_t::vt, nv = nt * vt };
 
@@ -158,9 +161,14 @@ void mergesort(key_t* keys_input, val_t* vals_input, int count,
 
       key_t answer = cta_merge_from_mem_special<bounds_lower, nt, vt>(
         keys_input, keys_input, range, tid, comp, shared.keys);
-
+	printf("%d", answer);
       // Store merged values back out.
-      shared.keys[0] = answer;
+            keys_input[0] = answer;
+            keys_input[tile.begin+tid] = answer;
+            keys_input[tile.begin] = answer;
+	    keys_output[0] = answer;
+
+      //shared.keys[0] = answer;
       // reg_to_mem_thread<nt>(merge.keys, tid, tile.count(), 
       //   keys_output + tile.begin, shared.keys);
 
@@ -177,9 +185,8 @@ void mergesort(key_t* keys_input, val_t* vals_input, int count,
     };
     }
     cta_transform<launch_t>(k, count, context);
-
-    std::swap(keys_input, keys_output);
-    std::swap(vals_input, vals_output);
+    //std::swap(keys_input, keys_output);
+    //std::swap(vals_input, vals_output);
   }
 }
 
