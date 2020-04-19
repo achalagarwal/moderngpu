@@ -189,6 +189,12 @@ MGPU_DEVICE type_t shfl_up(type_t x, int offset, int width = warp_size) {
 template<typename type_t>
 MGPU_DEVICE type_t shfl_down(type_t x, int offset, int width = warp_size) { 
   enum { num_words = div_up(sizeof(type_t), sizeof(int)) };
+
+  // is this defined behaviour?
+  // so the memory allocated is equal to size of type_t
+  // and type_t might be a single word or multiple words and we break it accordigly
+  // this is pretty cool
+  
   union {
     int x[num_words];
     type_t t;

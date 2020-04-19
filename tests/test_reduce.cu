@@ -3,7 +3,22 @@
 #include <numeric> // std:accumulate
 
 using namespace mgpu;
+// template<typename type_t>
+struct quad{
+  int left_element;
+  int left_count;
 
+  int current_element;
+  int current_count;
+  
+  int best_element;
+  int best_count;
+
+  int right_element;
+  int right_count;
+  
+};
+// template<typename type_t>
 int main(int argc, char** argv) {
 
   standard_context_t context;
@@ -15,39 +30,35 @@ int main(int argc, char** argv) {
       fill(1, count, context);
     const int* input_data = input.data();
 
-    typedef struct{
-      type_t best_count;
-      type_t current_count;
-      type_t current_element;
-      type_t best_element;
-    } quad;
+    
 
     mem_t<quad> reduction(1, context);
 
-    printf("Is there an error? %d", reduction.data().at(0).current_count);
-    reduce<launch_t>(input_data, count, reduction.data(), plus_t<int>(), 
+    printf("Is there an error? %d", from_mem(reduction).at(0).current_count);
+    // return 0;
+    reduce<launch_t>(input_data, count, reduction.data(), perform_t<quad, int>(), 
       context);
     context.synchronize();
-    std::vector<int> result1 = from_mem(reduction);
+    std::vector<quad> result1 = from_mem(reduction);
 
-    // transform_reduce()
-    // construct a lambda that returns input_data[index].
-    auto f = [=]MGPU_DEVICE(int index) { return input_data[index]; };
-    //transform_reduce(f, count, reduction.data(), plus_t<int>(), context);
-    std::vector<int> result2 = from_mem(reduction);
+    // // transform_reduce()
+    // // construct a lambda that returns input_data[index].
+    // auto f = [=]MGPU_DEVICE(int index) { return input_data[index]; };
+    // //transform_reduce(f, count, reduction.data(), plus_t<int>(), context);
+    // std::vector<int> result2 = from_mem(reduction);
 
-    // host reduce using std::accumulate.
-    std::vector<int> input_host = from_mem(input);
-    int ref = std::accumulate(input_host.begin(), input_host.end(), 0);
+    // // host reduce using std::accumulate.
+    // std::vector<int> input_host = from_mem(input);
+    // int ref = std::accumulate(input_host.begin(), input_host.end(), 0);
 
-    if(result1[0] != ref || result2[0] != ref) {
-      printf("reduce:           %d\n", result1[0]);
-      printf("transform_reduce: %d\n", result2[0]);
-      printf("std::accumulate:  %d\n", ref);
-      printf("ERROR AT COUNT = %d\n", count);
-      exit(1);
-    } else
-      printf("Reduction for count %d success\n", count);
+    // if(result1[0] != ref || result2[0] != ref) {
+    //   printf("reduce:           %d\n", result1[0]);
+    //   printf("transform_reduce: %d\n", result2[0]);
+    //   printf("std::accumulate:  %d\n", ref);
+    //   printf("ERROR AT COUNT = %d\n", count);
+    //   exit(1);
+    // } else
+    //   printf("Reduction for count %d success\n", count);
   }
   return 0; 
 

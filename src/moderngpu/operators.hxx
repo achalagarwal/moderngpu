@@ -95,22 +95,280 @@ struct plus_t : public std::binary_function<type_t, type_t, type_t> {
   }
 };
 
-template<typename type_t, quad_t>
+
+// template<typename type_t>
+// struct quad {
+//   type_t best_count;
+//   type_t current_count;
+//   type_t current_element;
+//   type_t best_element;
+// };
+// template<typename type_t, template<typename> typename quad>
+//TODO uncommment
+// template<typename quad_t>
+// struct perform_t: public std::binary_function<quad_t, quad_t, quad_t> {
+//   MGPU_HOST_DEVICE quad_t operator()(quad_t a, quad_t b) const {
+
+// //     struct quad{
+// //   int left_count;
+// //   int left_element;
+
+// //   int current_element;
+// //   int current_count;
+
+// //   int best_element;
+// //   int best_count;
+
+// //   int right_count;
+// //   int right_element;
+// // };
+//     // b is the element to the right of a
+
+//     // we need to generate a quad again
+//     // but the quad will only have 6 useful entries
+//     // left, best, right
+
+//     //l1, b1, r1 --- l2, b2, r2
+//     //l3, b3, r3
+//     // we send a after modifying it
+
+//     // update best
+//     if b.left_element == a.right_element{
+//       // the boundaries overlap
+//       // so we can add the counts
+//       a.current_count = a.right_count + b.left_count;
+//       if (a.current_count > a.best_count && a.current_count >= b.best_count){
+//         a.best_element = a.right_element;
+//         a.best_count = a.best_count;
+//       }
+        
+//       else if(a.current_count < b.best_count){
+//         a.best_element = b.best_element;
+//         a.best_count = b.best_count;
+//       }
+//       // else if(a.current_count <= a.best_count){
+//       // we don't need to change anything}
+
+    
+//     }
+//     // they don't overlap
+//     // which means we need to compare the two bests for the bests
+//     else{
+//       a.best_count = max(a.best_count, b.best_count);
+//       a.best_element = a.best_element >= b.best_element?a.best_element:b.best_element;
+//     }
+
+//     // update the left
+//     if (a.left_element == a.best_element){
+//       a.left_count = a.best_count;
+//     }
+//     // update the right
+//     a.right_element = b.right_element;
+//     if (a.right_element == a.best_count){
+//       a.right_count = a.best_count;
+//     }
+//     else{
+//       a.right_count = b.right_count;
+//     }
+    
+//     return a;
+//   }
+// };
+
+
+template<typename quad_t, typename type_t=int>
 struct perform_t: public std::binary_function<quad_t, type_t, quad_t> {
-  MGPU_HOST_DEVICE quad_t operator(quad_t a, type_t b) const {
-    // a: best-count, current-count, current-element, best-element
-    if(a.current_element == b){
-      a.current_count++;
-      return a;
+  MGPU_HOST_DEVICE quad_t operator()(quad_t a, type_t b) const {
+
+//     struct quad{
+//   int left_count;
+//   int left_element;
+
+//   int current_element;
+//   int current_count;
+
+//   int best_element;
+//   int best_count;
+
+//   int right_count;
+//   int right_element;
+// };
+
+
+    // this is the op quad/type
+    // TODO create the op for quad/quad
+
+    // the element will always be >= than left element
+    // why is this true?
+    // because the quad_t was initialised with the left most element
+
+    if (b == a.left_element){
+      // then the current element is also equal to be
+      // as thats how the struct was initialised
+      // so we increment both the counts;
+      a.left_count ++;
+      a.current_count ++;
+    }
+
+    else if( b == a.current_element){
+      // then just the current element is same
+      a.current_count ++;
+    }
+    else if( b != a.current_element){
+      // then we move on to a new element
+      a.best_element = a.current_count > a.best_count? a.current_element:a.best_element;
+      // assuming the max is faster than using an if
+      a.best_count = max(a.current_count, a.best_count);
+      a.current_count = 1;
+      a.current_element = b;
+    }
+
+    // we always change the right element and count
+    // as there is no way to detect when we are at the last element in the list
+    a.right_element = a.current_element;
+    a.right_count = a.current_count;
+
+    return a;
+  }
+
+
+  MGPU_HOST_DEVICE quad_t operator()(quad_t a, quad_t b) const {
+
+//     struct quad{
+//   int left_count;
+//   int left_element;
+
+//   int current_element;
+//   int current_count;
+
+//   int best_element;
+//   int best_count;
+
+//   int right_count;
+//   int right_element;
+// };
+    // b is the element to the right of a
+
+    // we need to generate a quad again
+    // but the quad will only have 6 useful entries
+    // left, best, right
+
+    //l1, b1, r1 --- l2, b2, r2
+    //l3, b3, r3
+    // we send a after modifying it
+
+    // update best
+    if (b.left_element == a.right_element){
+      // the boundaries overlap
+      // so we can add the counts
+      a.current_count = a.right_count + b.left_count;
+      if (a.current_count > a.best_count && a.current_count >= b.best_count){
+        a.best_element = a.right_element;
+        a.best_count = a.best_count;
+      }
+        
+      else if(a.current_count < b.best_count){
+        a.best_element = b.best_element;
+        a.best_count = b.best_count;
+      }
+      // else if(a.current_count <= a.best_count){
+      // we don't need to change anything}
+
+    
+    }
+    // they don't overlap
+    // which means we need to compare the two bests for the bests
+    else{
+      a.best_count = max(a.best_count, b.best_count);
+      a.best_element = a.best_element >= b.best_element?a.best_element:b.best_element;
+    }
+
+    // update the left
+    if (a.left_element == a.best_element){
+      a.left_count = a.best_count;
+    }
+    // update the right
+    a.right_element = b.right_element;
+    if (a.right_element == a.best_count){
+      a.right_count = a.best_count;
     }
     else{
-      // not creating a new struct because of the assumption that there stack memory might not work as in CPU
-      a.best_count = a.current_count > a.best_count? a.current_count: a.best_count;
-      a.best_element = a.current_count > a.best_count? a.current_element: a.best_element;
-      a.current_element = b;
-      a.current_count = 1; 
-      return a;
+      a.right_count = b.right_count;
     }
+    
+    return a;
+  }
+};
+
+
+template<typename quad_t, typename type_t=int>
+struct perform_qt: public std::binary_function<quad_t, quad_t, quad_t> {
+
+  MGPU_HOST_DEVICE quad_t operator()(quad_t a, quad_t b) const {
+
+//     struct quad{
+//   int left_count;
+//   int left_element;
+
+//   int current_element;
+//   int current_count;
+
+//   int best_element;
+//   int best_count;
+
+//   int right_count;
+//   int right_element;
+// };
+    // b is the element to the right of a
+
+    // we need to generate a quad again
+    // but the quad will only have 6 useful entries
+    // left, best, right
+
+    //l1, b1, r1 --- l2, b2, r2
+    //l3, b3, r3
+    // we send a after modifying it
+
+    // update best
+    if (b.left_element == a.right_element){
+      // the boundaries overlap
+      // so we can add the counts
+      a.current_count = a.right_count + b.left_count;
+      if (a.current_count > a.best_count && a.current_count >= b.best_count){
+        a.best_element = a.right_element;
+        a.best_count = a.best_count;
+      }
+        
+      else if(a.current_count < b.best_count){
+        a.best_element = b.best_element;
+        a.best_count = b.best_count;
+      }
+      // else if(a.current_count <= a.best_count){
+      // we don't need to change anything}
+
+    
+    }
+    // they don't overlap
+    // which means we need to compare the two bests for the bests
+    else{
+      a.best_count = max(a.best_count, b.best_count);
+      a.best_element = a.best_element >= b.best_element?a.best_element:b.best_element;
+    }
+
+    // update the left
+    if (a.left_element == a.best_element){
+      a.left_count = a.best_count;
+    }
+    // update the right
+    a.right_element = b.right_element;
+    if (a.right_element == a.best_count){
+      a.right_count = a.best_count;
+    }
+    else{
+      a.right_count = b.right_count;
+    }
+    
+    return a;
   }
 };
 
