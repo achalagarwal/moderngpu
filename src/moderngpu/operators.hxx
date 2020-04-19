@@ -180,7 +180,9 @@ struct plus_t : public std::binary_function<type_t, type_t, type_t> {
 
 template<typename quad_t, typename type_t=int>
 struct perform_t: public std::binary_function<quad_t, type_t, quad_t> {
-  MGPU_HOST_DEVICE quad_t operator()(quad_t a, type_t b) const {
+
+  template <typename T=type_t>
+  MGPU_HOST_DEVICE auto operator()(quad_t a, T b) ->typename std::enable_if<std::is_same<T, type_t>::value, bool>::type  {
 
 //     struct quad{
 //   int left_count;
@@ -236,8 +238,8 @@ struct perform_t: public std::binary_function<quad_t, type_t, quad_t> {
     return a;
   }
 
-
-  MGPU_HOST_DEVICE quad_t operator()(quad_t a, quad_t b) const {
+  template <typename T=type_t>
+  MGPU_HOST_DEVICE auto operator()(quad_t a, T b) ->typename std::enable_if<std::is_same<T, quad_t>::value, bool>::type  {
 
 //     struct quad{
 //   int left_count;
