@@ -17,16 +17,35 @@ struct shfl_reduce_t {
 
   template<typename op_t = plus_t<type_t> >
   MGPU_DEVICE type_t reduce(int lane, type_t x, int count, op_t op = op_t()) {
+    // const int passes = s_log2(count);
     if(count == group_size) { 
       iterate<num_passes>([&](int pass) {
         int offset = 1<< pass;
-        x = shfl_down_op(x, offset, op, group_size);
+
+        if((lane + offset) % group_size > lane){
+          x = op(x, shfl_xor(-1, x, offset));
+        }
+        else{
+          x = op(shfl_xor(-1, x, offset),x);
+        }
+        // for (int i=1; i<32; i*=2)
+        // check for which value is the smaller one (the left and the right as the operator is not yet commutative)
+        
+        // x = shfl_down_op(x, offset, op, group_size);
       });
     } else {
       iterate<num_passes>([&](int pass) {
         int offset = 1<< pass;
-        type_t y = shfl_down(x, offset, group_size);
-        if(lane + offset < count) x = op(x, y);
+        // type_t y = shfl_down(x, offset, group_size);
+      
+        if(lane + offset < count){
+          if((lane + offset) % group_size > lane){
+          x = op(x, shfl_xor(-1, x, offset));
+        }
+        else{
+          x = op(shfl_xor(-1, x, offset),x);
+        }
+        }
       });
     }
     return x;

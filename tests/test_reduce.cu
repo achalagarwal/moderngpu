@@ -23,24 +23,24 @@ int main(int argc, char** argv) {
 
   standard_context_t context;
 
-  typedef launch_params_t<32 * 6, 11> launch_t;
+  typedef launch_params_t<32, 40> launch_t;
 
-  for(int count = 1000; count < 23456789; count += count / 100) {
+  for(int count = 1280; count < 1281; count += count / 100) {
     mem_t<int> input = // fill_random(0, 100, count, false, context);
-      fill(1, count, context);
+      fill(2, count, context);
     const int* input_data = input.data();
 
     
 
     mem_t<quad> reduction(1, context);
 
-    printf("Is there an error? %d", from_mem(reduction).at(0).current_count);
+    // printf("Is there an error? %d", from_mem(reduction).at(0).current_count);
     // return 0;
     reduce<launch_t>(input_data, count, reduction.data(), perform_t<quad, int>(), 
       context);
     context.synchronize();
     std::vector<quad> result1 = from_mem(reduction);
-
+    printf("reduce:  %d\t%d\t%d\t%d\t%d\n", result1[0].best_count, result1[0].best_element, result1[0].left_count, result1[0].right_count, result1[0].current_count);
     // // transform_reduce()
     // // construct a lambda that returns input_data[index].
     // auto f = [=]MGPU_DEVICE(int index) { return input_data[index]; };

@@ -1,6 +1,8 @@
 // moderngpu copyright (c) 2016, Sean Baxter http://www.moderngpu.com
 #pragma once
 #include "meta.hxx"
+#include <assert.h>
+
 
 BEGIN_MGPU_NAMESPACE
 
@@ -206,19 +208,22 @@ struct perform_t: public std::binary_function<quad_t, type_t, quad_t> {
       // then the current element is also equal to be
       // as thats how the struct was initialised
       // so we increment both the counts;
-      a.left_count ++;
-      a.current_count ++;
+      a.left_count++;
+      a.current_count++;
     }
 
     else if( b == a.current_element){
       // then just the current element is same
-      a.current_count ++;
+      a.current_count++;
     }
     else if( b != a.current_element){
       // then we move on to a new element
       a.best_element = a.current_count > a.best_count? a.current_element:a.best_element;
       // assuming the max is faster than using an if
       a.best_count = max(a.current_count, a.best_count);
+      // a.best_count = a.current_count > a.best_count? a.current_count:a.best_count;
+      assert(a.best_count == 1);
+
       a.current_count = 1;
       a.current_element = b;
     }
@@ -264,7 +269,7 @@ struct perform_t: public std::binary_function<quad_t, type_t, quad_t> {
       a.current_count = a.right_count + b.left_count;
       if (a.current_count > a.best_count && a.current_count >= b.best_count){
         a.best_element = a.right_element;
-        a.best_count = a.best_count;
+        a.best_count = a.current_count;
       }
         
       else if(a.current_count < b.best_count){
@@ -289,7 +294,7 @@ struct perform_t: public std::binary_function<quad_t, type_t, quad_t> {
     }
     // update the right
     a.right_element = b.right_element;
-    if (a.right_element == a.best_count){
+    if (a.right_element == a.best_element){
       a.right_count = a.best_count;
     }
     else{
