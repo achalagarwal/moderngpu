@@ -4,31 +4,31 @@
 
 using namespace mgpu;
 // template<typename type_t>
-struct quad{
-  int left_element;
-  int left_count;
+// struct quad{
+//   int left_element;
+//   int left_count;
 
-  int current_element;
-  int current_count;
+//   int current_element;
+//   int current_count;
   
-  int best_element;
-  int best_count;
+//   int best_element;
+//   int best_count;
 
-  int right_element;
-  int right_count;
+//   int right_element;
+//   int right_count;
   
-};
+// };
 // template<typename type_t>
 int main(int argc, char** argv) {
 
   standard_context_t context;
 
-  typedef launch_params_t<32, 40> launch_t;
+  typedef launch_params_t<32*6, 10> launch_t;
 
   for(int count = 1280; count < 1281; count += count / 100) {
     mem_t<int> input = // fill_random(0, 100, count, false, context);
       fill(2, count, context);
-    const int* input_data = input.data();
+    int* input_data = input.data();
 
     
 
@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
 
     // printf("Is there an error? %d", from_mem(reduction).at(0).current_count);
     // return 0;
-    reduce<launch_t>(input_data, count, reduction.data(), perform_t<quad, int>(), 
+    reduce<launch_t>(input_data, count, reduction.data(), perform_t<int>(), perform_t<quad>(), 
       context);
     context.synchronize();
     std::vector<quad> result1 = from_mem(reduction);

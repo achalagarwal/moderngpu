@@ -177,67 +177,25 @@ struct plus_t : public std::binary_function<type_t, type_t, type_t> {
 //   }
 // };
 
+struct quad{
+  int left_element;
+  int left_count;
 
-template<typename quad_t, typename type_t=int>
-struct perform_t: public std::binary_function<quad_t, type_t, quad_t> {
-  MGPU_HOST_DEVICE quad_t operator()(quad_t a, type_t b) const {
+  int current_element;
+  int current_count;
+  
+  int best_element;
+  int best_count;
 
-//     struct quad{
-//   int left_count;
-//   int left_element;
-
-//   int current_element;
-//   int current_count;
-
-//   int best_element;
-//   int best_count;
-
-//   int right_count;
-//   int right_element;
-// };
+  int right_element;
+  int right_count;
+  
+};
+template<typename type_t=int>
+struct perform_t: public std::binary_function<quad, type_t, quad> {
 
 
-    // this is the op quad/type
-    // TODO create the op for quad/quad
-
-    // the element will always be >= than left element
-    // why is this true?
-    // because the quad_t was initialised with the left most element
-
-    if (b == a.left_element){
-      // then the current element is also equal to be
-      // as thats how the struct was initialised
-      // so we increment both the counts;
-      a.left_count++;
-      a.current_count++;
-    }
-
-    else if( b == a.current_element){
-      // then just the current element is same
-      a.current_count++;
-    }
-    else if( b != a.current_element){
-      // then we move on to a new element
-      a.best_element = a.current_count > a.best_count? a.current_element:a.best_element;
-      // assuming the max is faster than using an if
-      a.best_count = max(a.current_count, a.best_count);
-      // a.best_count = a.current_count > a.best_count? a.current_count:a.best_count;
-      assert(a.best_count == 1);
-
-      a.current_count = 1;
-      a.current_element = b;
-    }
-
-    // we always change the right element and count
-    // as there is no way to detect when we are at the last element in the list
-    a.right_element = a.current_element;
-    a.right_count = a.current_count;
-
-    return a;
-  }
-
-
-  MGPU_HOST_DEVICE quad_t operator()(quad_t a, quad_t b) const {
+  MGPU_HOST_DEVICE quad operator()(quad a, quad b) const {
 
 //     struct quad{
 //   int left_count;
@@ -303,6 +261,64 @@ struct perform_t: public std::binary_function<quad_t, type_t, quad_t> {
     
     return a;
   }
+
+
+  MGPU_HOST_DEVICE quad operator()(quad a, int b) const {
+
+//     struct quad{
+//   int left_count;
+//   int left_element;
+
+//   int current_element;
+//   int current_count;
+
+//   int best_element;
+//   int best_count;
+
+//   int right_count;
+//   int right_element;
+// };
+
+
+    // this is the op quad/type
+    // TODO create the op for quad/quad
+
+    // the element will always be >= than left element
+    // why is this true?
+    // because the quad_t was initialised with the left most element
+
+    if (b == a.left_element){
+      // then the current element is also equal to be
+      // as thats how the struct was initialised
+      // so we increment both the counts;
+      a.left_count++;
+      a.current_count++;
+    }
+
+    else if( b == a.current_element){
+      // then just the current element is same
+      a.current_count++;
+    }
+    else if( b != a.current_element){
+      // then we move on to a new element
+      a.best_element = a.current_count > a.best_count? a.current_element:a.best_element;
+      // assuming the max is faster than using an if
+      a.best_count = max(a.current_count, a.best_count);
+      // a.best_count = a.current_count > a.best_count? a.current_count:a.best_count;
+      assert(a.best_count == 1);
+
+      a.current_count = 1;
+      a.current_element = b;
+    }
+
+    // we always change the right element and count
+    // as there is no way to detect when we are at the last element in the list
+    a.right_element = a.current_element;
+    a.right_count = a.current_count;
+
+    return a;
+  }
+
 };
 
 
