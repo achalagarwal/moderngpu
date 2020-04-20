@@ -27,8 +27,9 @@ int main(int argc, char** argv) {
 
   for(int count = 1280; count < 5000; count += count / 100) {
     mem_t<int> input = // fill_random(0, 100, count, false, context);
-      fill(2, count, context);
-    const int* input_data = input.data();
+      // fill(2, count, context);
+      fill_random(1, 1000, count, true,context);
+    int* input_data = input.data();
 
     
 
