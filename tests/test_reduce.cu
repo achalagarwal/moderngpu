@@ -23,9 +23,9 @@ int main(int argc, char** argv) {
 
   standard_context_t context;
 
-  typedef launch_params_t<32, 40> launch_t;
+  typedef launch_params_t<32,11> launch_t;
 
-  for(int count = 1280; count < 1281; count += count / 100) {
+  for(int count = 1280; count < 5000; count += count / 100) {
     mem_t<int> input = // fill_random(0, 100, count, false, context);
       fill(2, count, context);
     const int* input_data = input.data();

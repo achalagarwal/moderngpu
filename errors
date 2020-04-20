@@ -1,0 +1,43 @@
+/home/achal/moderngpu/src/moderngpu/operators.hxx(182): error: identifier "quad" is undefined
+
+/home/achal/moderngpu/src/moderngpu/operators.hxx(182): error: identifier "quad" is undefined
+
+/home/achal/moderngpu/src/moderngpu/operators.hxx(182): error: "op" is not a class or function template name in the current scope
+
+/home/achal/moderngpu/src/moderngpu/operators.hxx(239): error: identifier "quad" is undefined
+
+/home/achal/moderngpu/src/moderngpu/operators.hxx(239): error: identifier "quad" is undefined
+
+/home/achal/moderngpu/src/moderngpu/operators.hxx(239): error: identifier "quad" is undefined
+
+/home/achal/moderngpu/src/moderngpu/operators.hxx(239): error: "op" is not a class or function template name in the current scope
+
+/home/achal/moderngpu/src/moderngpu/kernel_reduce.hxx(52): error: no suitable conversion function from "quad" to "int" exists
+          detected during:
+            instantiation of "void mgpu::reduce(input_it, int, output_it, op_t, mgpu::context_t &) [with launch_arg_t=mgpu::launch_params_t<512, 4, 4, 0>, input_it=quad *, output_it=quad *, op_t=mgpu::perform_t<quad, int>]" 
+(69): here
+            instantiation of "void mgpu::reduce(input_it, int, output_it, op_t, mgpu::context_t &) [with launch_arg_t=mgpu::launch_params_t<32, 11, 11, 0>, input_it=const int *, output_it=quad *, op_t=mgpu::perform_t<quad, int>]" 
+tests/test_reduce.cu(39): here
+
+/home/achal/moderngpu/src/moderngpu/kernel_reduce.hxx(52): error: no suitable conversion function from "quad" to "int" exists
+          detected during:
+            instantiation of "void mgpu::reduce(input_it, int, output_it, op_t, mgpu::context_t &) [with launch_arg_t=mgpu::launch_params_t<512, 4, 4, 0>, input_it=quad *, output_it=quad *, op_t=mgpu::perform_t<quad, int>]" 
+(69): here
+            instantiation of "void mgpu::reduce(input_it, int, output_it, op_t, mgpu::context_t &) [with launch_arg_t=mgpu::launch_params_t<32, 11, 11, 0>, input_it=const int *, output_it=quad *, op_t=mgpu::perform_t<quad, int>]" 
+tests/test_reduce.cu(39): here
+
+/home/achal/moderngpu/src/moderngpu/kernel_reduce.hxx(52): error: no suitable conversion function from "quad" to "int" exists
+          detected during:
+            instantiation of "void mgpu::reduce(input_it, int, output_it, op_t, mgpu::context_t &) [with launch_arg_t=mgpu::launch_params_t<512, 4, 4, 0>, input_it=quad *, output_it=quad *, op_t=mgpu::perform_t<quad, int>]" 
+(69): here
+            instantiation of "void mgpu::reduce(input_it, int, output_it, op_t, mgpu::context_t &) [with launch_arg_t=mgpu::launch_params_t<32, 11, 11, 0>, input_it=const int *, output_it=quad *, op_t=mgpu::perform_t<quad, int>]" 
+tests/test_reduce.cu(39): here
+
+/home/achal/moderngpu/src/moderngpu/kernel_reduce.hxx(52): error: no suitable conversion function from "quad" to "int" exists
+          detected during:
+            instantiation of "void mgpu::reduce(input_it, int, output_it, op_t, mgpu::context_t &) [with launch_arg_t=mgpu::launch_params_t<512, 4, 4, 0>, input_it=quad *, output_it=quad *, op_t=mgpu::perform_t<quad, int>]" 
+(69): here
+            instantiation of "void mgpu::reduce(input_it, int, output_it, op_t, mgpu::context_t &) [with launch_arg_t=mgpu::launch_params_t<32, 11, 11, 0>, input_it=const int *, output_it=quad *, op_t=mgpu::perform_t<quad, int>]" 
+tests/test_reduce.cu(39): here
+
+11 errors detected in the compilation of "/tmp/tmpxft_00001c8c_00000000-8_test_reduce.cpp1.ii".

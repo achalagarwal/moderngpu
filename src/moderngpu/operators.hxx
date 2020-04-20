@@ -178,11 +178,8 @@ struct plus_t : public std::binary_function<type_t, type_t, type_t> {
 // };
 
 
-template<typename quad_t, typename type_t=int>
-struct perform_t: public std::binary_function<quad_t, type_t, quad_t> {
-
-  template <typename T=type_t>
-  MGPU_HOST_DEVICE auto operator()(quad_t a, T b) ->typename std::enable_if<std::is_same<T, type_t>::value, bool>::type  {
+  template<>
+  MGPU_HOST_DEVICE quad op(quad a, int b) {
 
 //     struct quad{
 //   int left_count;
@@ -238,8 +235,8 @@ struct perform_t: public std::binary_function<quad_t, type_t, quad_t> {
     return a;
   }
 
-  template <typename T=type_t>
-  MGPU_HOST_DEVICE auto operator()(quad_t a, T b) ->typename std::enable_if<std::is_same<T, quad_t>::value, bool>::type  {
+  template<>
+  MGPU_HOST_DEVICE quad op(quad a, quad b)  {
 
 //     struct quad{
 //   int left_count;
@@ -305,12 +302,22 @@ struct perform_t: public std::binary_function<quad_t, type_t, quad_t> {
     
     return a;
   }
+
+template<typename quad_t, typename type_t=int>
+struct perform_t: public std::binary_function<quad_t, type_t, quad_t> {
+
+  template<typename T>
+  MGPU_HOST_DEVICE quad_t operator()(quad_t a, T b) const{
+
+  } 
+
 };
 
 
 template<typename quad_t, typename type_t=int>
 struct perform_qt: public std::binary_function<quad_t, quad_t, quad_t> {
 
+  
   MGPU_HOST_DEVICE quad_t operator()(quad_t a, quad_t b) const {
 
 //     struct quad{

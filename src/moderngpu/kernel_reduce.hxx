@@ -64,9 +64,9 @@ void reduce(input_it input, int count, output_it reduction, op_t op,
   cta_launch<launch_t>(k, num_ctas, context);
 
   // Recursively call reduce until there's just one scalar.
-  // if(num_ctas > 1)
-  //   reduce<launch_params_t<512, 4> >(partials_data, num_ctas, reduction,  perform_qt<quad, quad>(), 
-  //     context);
+  if(num_ctas > 1)
+    reduce<launch_params_t<512, 4> >(partials_data, num_ctas, reduction,  op, 
+      context);
 }
 
 template<typename launch_arg_t = empty_t, typename func_t, 
