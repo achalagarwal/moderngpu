@@ -8,12 +8,20 @@ int main(int argc, char** argv) {
 
   standard_context_t context;
 
+<<<<<<< HEAD
   typedef launch_params_t<32 * 6, 11> launch_t;
+=======
+  typedef launch_params_t<32*6, 4> launch_t;
+>>>>>>> 842d8b8... Pushing from daisy
 
   for(int count = 1000; count < 23456789; count += count / 100) {
     mem_t<int> input = // fill_random(0, 100, count, false, context);
-      fill(1, count, context);
     const int* input_data = input.data();
+      // fill(2, count, context);
+      fill_random(1, 1000, count, true,context);
+    int* input_data = input.data();
+
+    
 
     mem_t<int> reduction(1, context);
 
