@@ -231,8 +231,10 @@ MGPU_DEVICE type_t shfl_xor(unsigned mask, type_t x, int laneMask, int width = w
 
   iterate<num_words>([&](int i) {
     #ifdef USE_SHFL_SYNC
+    // printf("using sync\n");
     if (i < width) {
-      u.x[i] = __shfl_xor_sync(mask, u.x[i], laneMask, width);
+      unsigned amask = __activemask();
+      u.x[i] = __shfl_xor_sync(amask, u.x[i], laneMask, width);
     }
     #else
     u.x[i] = __shfl_xor(mask, u.x[i], laneMask, width);

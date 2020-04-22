@@ -23,13 +23,13 @@ int main(int argc, char** argv) {
 
   standard_context_t context;
 
-  typedef launch_params_t<32*6, 4> launch_t;
+  typedef launch_params_t<32*6, 10> launch_t;
 
   for(int count = 1280; count < 1281; count += count / 100) {
     mem_t<int> input = // fill_random(0, 100, count, false, context);
-      // fill(2, count, context);
-      fill_random(1, 1000, count, true,context);
-    int* input_data = input.data();
+      fill(2, count, context);
+      // fill_random(7, 1000, count, true,context);
+    const int* input_data = input.data();
 
     
 
