@@ -19,15 +19,21 @@ struct shfl_reduce_t {
   MGPU_DEVICE type_t reduce(int lane, type_t x, int count, op_t op = op_t()) {
     // const int passes = s_log2(count);
     if(count == group_size) { 
+      // printf("In here");
       iterate<num_passes>([&](int pass) {
         int offset = 1<< pass;
-
-        if((lane + offset) % group_size > lane){
+        
+        // if(lane==16) printf("offset %d\n", offset);
+        // if(lane==16) printf("best count: %d\n", x.best_count);
+        // if(lane==16) {printf("offset's best count %d\n", shfl_xor(-1, x, offset).best_count);}
+        // if((lane + offset) % group_size > lane){
           x = op(x, shfl_xor(-1, x, offset));
-        }
-        else{
-          x = op(shfl_xor(-1, x, offset),x);
-        }
+        // }
+        // else{
+        //   if(lane==16)printf("In here");
+        //   x = op(shfl_xor(-1, x, offset),x);
+        // }
+        // if(lane==16) printf("best count: %d\n", x.best_count);
         // for (int i=1; i<32; i*=2)
         // check for which value is the smaller one (the left and the right as the operator is not yet commutative)
         
@@ -39,12 +45,12 @@ struct shfl_reduce_t {
         // type_t y = shfl_down(x, offset, group_size);
       
         if(lane + offset < count){
-          if((lane + offset) % group_size > lane){
+          // if((lane + offset) % group_size > lane){
           x = op(x, shfl_xor(-1, x, offset));
-        }
-        else{
-          x = op(shfl_xor(-1, x, offset),x);
-        }
+        // }
+        // else{
+          // x = op(shfl_xor(-1, x, offset),x);
+        // }
         }
       });
     }
@@ -96,7 +102,8 @@ struct cta_reduce_t {
         if(i > 0) x = op(x, storage.data[j]);
       }, tid, count);
 
-
+      // if(!tid)  printf("Before shuffle reduce:%d\n", x.best_count);
+      // if(!tid)  printf("min(group, count):%d\n", min(count, (int)group_size));
       // now there are only group_size number of quad_t remaining
       // Cooperative reduction.
       x = group_reduce_t().reduce(tid, x, min(count, (int)group_size), op);

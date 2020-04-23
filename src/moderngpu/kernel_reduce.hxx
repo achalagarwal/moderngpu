@@ -112,21 +112,21 @@ void reduce(input_it input, int count, output_it reduction, op_t op, op_tt op2,
       scalar = i ? op(scalar, x[i]) : (quad){x[0],1, x[0],1,x[0],1,x[0],1};
     }, tid, tile.count());
 
-    printf("Tile.count() %d\n", tile.count());
+    // printf("Tile.count() %d\n", tile.count());
 
-    if(tid) printf("Per thread:%d\n", scalar.best_count);
+    // if(!tid) printf("reduce:  %d\t%d\t%d\t%d\t%d\n", scalar.best_count, scalar.best_element, scalar.left_count, scalar.right_count, scalar.current_count);
+
 
     // Reduce to a scalar per CTA.
     scalar = reduce_t().reduce(tid, scalar, shared_reduce, 
       min(tile.count(), (int)nt), op2, false);
-    if(!tid) printf("Per cta:%d\n", scalar.best_count);
+    // if(!tid) printf("Per cta:%d\n", scalar.best_count);
 
-    if(!tid) {
-            printf("%d\n", num_ctas);
+    // if(!tid) printf("%d\n", num_ctas);
 
       if(1 == num_ctas) *reduction = scalar;
       else partials_data[cta] = scalar;
-    }
+    
   };
   cta_launch<launch_t>(k, num_ctas, context);
 

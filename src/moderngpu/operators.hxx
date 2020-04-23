@@ -293,11 +293,13 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
       // so we increment both the counts;
       a.left_count++;
       a.current_count++;
+      if(b == a.best_element) a.best_count++;
     }
 
     else if( b == a.current_element){
       // then just the current element is same
       a.current_count++;
+      
     }
     else if( b != a.current_element){
       // then we move on to a new element
