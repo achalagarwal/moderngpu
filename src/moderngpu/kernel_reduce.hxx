@@ -109,7 +109,7 @@ void reduce(input_it input, int count, output_it reduction, op_t op, op_tt op2,
     quad scalar;
 
     strided_iterate<nt, vt>([&](int i, int j) {
-      scalar = i ? op(scalar, x[i]) : (quad){x[0],1, x[0],1,x[0],1,x[0],1};
+      scalar = i ? op(scalar, x[i]) : (quad){x[0],1, x[0],1,x[0],1};
     }, tid, tile.count());
 
     // printf("Tile.count() %d\n", tile.count());

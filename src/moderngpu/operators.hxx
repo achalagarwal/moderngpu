@@ -181,8 +181,8 @@ struct quad{
   int left_element;
   int left_count;
 
-  int current_element;
-  int current_count;
+  // int current_element;
+  // int current_count;
   
   int best_element;
   int best_count;
@@ -222,15 +222,22 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
 
     // update best
     if (b.left_element == a.right_element){
+      // after this condition we will never use b.left_element
+      // this means that we can use b.left_element to store something else instead of creating a stack variable
+      // this is done because moderngpu has storage requirements tied to the function 
+      // and we should not be creating extra stack variables
+      // is this true?
+
       // the boundaries overlap
       // so we can add the counts
-      a.current_count = a.right_count + b.left_count;
-      if (a.current_count > a.best_count && a.current_count >= b.best_count){
+      // we store it in b.left_element
+      b.left_element = a.right_count + b.left_count;
+      if (b.left_element > a.best_count && b.left_element >= b.best_count){
         a.best_element = a.right_element;
-        a.best_count = a.current_count;
+        a.best_count = b.left_element;
       }
         
-      else if(a.current_count < b.best_count){
+      else if(b.left_element < b.best_count){
         a.best_element = b.best_element;
         a.best_count = b.best_count;
       }
@@ -292,31 +299,31 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
       // as thats how the struct was initialised
       // so we increment both the counts;
       a.left_count++;
-      a.current_count++;
+      a.right_count++;
       if(b == a.best_element) a.best_count++;
     }
 
-    else if( b == a.current_element){
+    else if( b == a.right_element){
       // then just the current element is same
-      a.current_count++;
+      a.right_count++;
       
     }
-    else if( b != a.current_element){
+    else if( b != a.right_element){
       // then we move on to a new element
-      a.best_element = a.current_count > a.best_count? a.current_element:a.best_element;
+      a.best_element = a.right_count > a.best_count? a.right_element:a.best_element;
       // assuming the max is faster than using an if
-      a.best_count = max(a.current_count, a.best_count);
+      a.best_count = max(a.right_count, a.best_count);
       // a.best_count = a.current_count > a.best_count? a.current_count:a.best_count;
       assert(a.best_count == 1);
 
-      a.current_count = 1;
-      a.current_element = b;
+      a.right_count = 1;
+      a.right_element = b;
     }
 
     // we always change the right element and count
     // as there is no way to detect when we are at the last element in the list
-    a.right_element = a.current_element;
-    a.right_count = a.current_count;
+    // a.right_element = a.current_element;
+    // a.right_count = a.current_count;
 
     return a;
   }
@@ -354,15 +361,22 @@ struct perform_qt: public std::binary_function<quad_t, quad_t, quad_t> {
 
     // update best
     if (b.left_element == a.right_element){
+      // after this condition we will never use b.left_element
+      // this means that we can use b.left_element to store something else instead of creating a stack variable
+      // this is done because moderngpu has storage requirements tied to the function 
+      // and we should not be creating extra stack variables
+      // is this true?
+
       // the boundaries overlap
       // so we can add the counts
-      a.current_count = a.right_count + b.left_count;
-      if (a.current_count > a.best_count && a.current_count >= b.best_count){
+      // we store it in b.left_element
+      b.left_element = a.right_count + b.left_count;
+      if (b.left_element > a.best_count && b.left_element >= b.best_count){
         a.best_element = a.right_element;
-        a.best_count = a.best_count;
+        a.best_count = b.left_element;
       }
         
-      else if(a.current_count < b.best_count){
+      else if(b.left_element < b.best_count){
         a.best_element = b.best_element;
         a.best_count = b.best_count;
       }

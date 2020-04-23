@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
       context);
     context.synchronize();
     std::vector<quad> result1 = from_mem(reduction);
-    printf("reduce:  %d\t%d\t%d\t%d\t%d\n", result1[0].best_count, result1[0].best_element, result1[0].left_count, result1[0].right_count, result1[0].current_count);
+    printf("reduce:  %d\t%d\t%d\t%d\t%d\n", result1[0].best_count, result1[0].best_element, result1[0].left_count, result1[0].right_count);
     // // transform_reduce()
     // // construct a lambda that returns input_data[index].
     // auto f = [=]MGPU_DEVICE(int index) { return input_data[index]; };
