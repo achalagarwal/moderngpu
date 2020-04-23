@@ -58,11 +58,11 @@ void reduce2(input_it input, int count, output_it reduction, op_t op, op_tt op2,
     scalar = reduce_t().reduce(tid, scalar, shared_reduce, 
       min(tile.count(), (int)nt), op2, false);
 
-    if(!tid) {
-      printf("%d\n", num_ctas);
+    // if(!tid) {
+      // printf("%d\n", num_ctas);
       if(1 == num_ctas) *reduction = scalar;
       else partials_data[cta] = scalar;
-    }
+    // }
   };
   cta_launch<launch_t>(k, num_ctas, context);
 

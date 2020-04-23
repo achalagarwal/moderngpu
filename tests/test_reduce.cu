@@ -25,10 +25,10 @@ int main(int argc, char** argv) {
 
   typedef launch_params_t<32*6, 10> launch_t;
 
-  for(int count = 1280; count < 1281; count += count / 100) {
+  for(int count = 1280; count < 128001; count += count / 100) {
     mem_t<int> input = // fill_random(0, 100, count, false, context);
-      fill(2, count, context);
-      // fill_random(7, 1000, count, true,context);
+      // fill(2, count, context);
+      fill_random(7, 100, count, true,context);
     const int* input_data = input.data();
 
     
@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
       context);
     context.synchronize();
     std::vector<quad> result1 = from_mem(reduction);
-    printf("reduce:  %d\t%d\t%d\t%d\t%d\n", result1[0].best_count, result1[0].best_element, result1[0].left_count, result1[0].right_count);
+    printf("reduce:  %d\t%d\t%d\t%d\n", result1[0].best_count, result1[0].best_element, result1[0].left_count, result1[0].right_count);
     // // transform_reduce()
     // // construct a lambda that returns input_data[index].
     // auto f = [=]MGPU_DEVICE(int index) { return input_data[index]; };
