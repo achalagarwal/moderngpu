@@ -37,11 +37,11 @@ void reduce2(input_it input, int count, output_it reduction, op_t op, op_tt op2,
     enum { nt = params_t::nt, vt = params_t::vt, nv = nt * vt };
     typedef cta_reduce_t<nt, quad, quad> reduce_t;
     __shared__ typename reduce_t::storage_t<quad> shared_reduce;
-
+    __shared__ quad vals[nv];
     // Load the data for the first tile for each cta.
     range_t tile = get_tile(cta, nv, count);
-    array_t<quad, vt> x = mem_to_reg_strided<nt, vt>(input + tile.begin, 
-      tid, tile.count());
+    array_t<quad, vt> x = mem_to_reg_thread<nt, vt>(input + tile.begin, 
+      tid, tile.count(), vals);
 
     // Reduce the multiple values per thread into a scalar.
 
@@ -58,11 +58,11 @@ void reduce2(input_it input, int count, output_it reduction, op_t op, op_tt op2,
     scalar = reduce_t().reduce(tid, scalar, shared_reduce, 
       min(tile.count(), (int)nt), op2, false);
 
-    // if(!tid) {
-      // printf("%d\n", num_ctas);
+    if(!tid) {
+      printf("%d\n", num_ctas);
       if(1 == num_ctas) *reduction = scalar;
       else partials_data[cta] = scalar;
-    // }
+    }
   };
   cta_launch<launch_t>(k, num_ctas, context);
 
@@ -71,7 +71,7 @@ void reduce2(input_it input, int count, output_it reduction, op_t op, op_tt op2,
   cudaDeviceSynchronize();
 
   if(num_ctas > 1)
-    reduce2<launch_params_t<512, 4>,quad*, quad* >(partials_data, num_ctas, reduction,  perform_t<quad>(),  perform_t<quad>(),
+    reduce2<launch_params_t<32, 4>,quad*, quad* >(partials_data, num_ctas, reduction,  perform_t<quad>(),  perform_t<quad>(),
       context);
 }
 
@@ -95,11 +95,13 @@ void reduce(input_it input, int count, output_it reduction, op_t op, op_tt op2,
     enum { nt = params_t::nt, vt = params_t::vt, nv = nt * vt };
     typedef cta_reduce_t<nt, type_t, quad> reduce_t;
     __shared__ typename reduce_t::storage_t<quad> shared_reduce;
-
+    __shared__ int vals[nv];
     // Load the data for the first tile for each cta.
+    // does this return values in order?
+    // yes
     range_t tile = get_tile(cta, nv, count);
-    array_t<type_t, vt> x = mem_to_reg_strided<nt, vt>(input + tile.begin, 
-      tid, tile.count());
+    array_t<type_t, vt> x = mem_to_reg_thread<nt, vt>(input + tile.begin, 
+      tid, tile.count(), vals );
 
     // Reduce the multiple values per thread into a scalar.
 
@@ -108,13 +110,20 @@ void reduce(input_it input, int count, output_it reduction, op_t op, op_tt op2,
 
     quad scalar;
 
+    if(!tid){
+      strided_iterate<nt, vt>([&](int i, int j) {
+        printf("Ele in thread at %d: %d", i, x[i]);
+      scalar = i ? op(scalar, x[i]) : (quad){x[0],1, x[0],1,x[0],1};
+    }, tid, tile.count());
+    }
+    else{
     strided_iterate<nt, vt>([&](int i, int j) {
       scalar = i ? op(scalar, x[i]) : (quad){x[0],1, x[0],1,x[0],1};
     }, tid, tile.count());
-
+    }
     // printf("Tile.count() %d\n", tile.count());
 
-    // if(!tid) printf("reduce:  %d\t%d\t%d\t%d\t%d\n", scalar.best_count, scalar.best_element, scalar.left_count, scalar.right_count, scalar.current_count);
+    // if(tid) printf("reduce:  %d\t%d\t%d\t%d\n", scalar.best_count, scalar.best_element, scalar.left_count, scalar.right_count);
 
 
     // Reduce to a scalar per CTA.
@@ -122,17 +131,17 @@ void reduce(input_it input, int count, output_it reduction, op_t op, op_tt op2,
       min(tile.count(), (int)nt), op2, false);
     // if(!tid) printf("Per cta:%d\n", scalar.best_count);
 
-    // if(!tid) printf("%d\n", num_ctas);
+    if(!tid) {printf("%d\n", num_ctas);
 
       if(1 == num_ctas) *reduction = scalar;
       else partials_data[cta] = scalar;
-    
+    }
   };
   cta_launch<launch_t>(k, num_ctas, context);
 
   // Recursively call reduce until there's just one scalar.
   if(num_ctas > 1)
-    reduce2<launch_params_t<512, 4>,quad*, quad* >(partials_data, num_ctas, reduction,  perform_t<quad>(),  perform_t<quad>(),
+    reduce2<launch_params_t<32, 4>,quad*, quad* >(partials_data, num_ctas, reduction,  perform_t<quad>(),  perform_t<quad>(),
       context);
 }
 

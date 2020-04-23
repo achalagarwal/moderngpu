@@ -221,7 +221,7 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
     // we send a after modifying it
 
     // update best
-    assert(b.left_element>=a.right_element);
+    // assert(b.left_element>=a.right_element);
     if (b.left_element == a.right_element){
       // after this condition we will never use b.left_element
       // this means that we can use b.left_element to store something else instead of creating a stack variable
@@ -294,7 +294,7 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
     // the element will always be >= than left element
     // why is this true?
     // because the quad_t was initialised with the left most element
-    assert(b>=a.right_element);
+    // assert(b>=a.right_element);
     if (b == a.left_element){
       // then the current element is also equal to be
       // as thats how the struct was initialised

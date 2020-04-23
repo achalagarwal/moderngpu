@@ -90,7 +90,12 @@ struct cta_reduce_t {
       // the data is the reduced quad_t
 
     // Store your data into shared memory.
-    storage.data[tid] = x;
+    // storage.data[tid] = x;
+    int k = int(count*1.0/group_size) ;
+    int r= count % group_size;
+    int offset = int(tid*1.0/k);
+    // index = bucket + offset; bucket = tid%(k+1)*group_size
+    storage.data[((tid%(k+1)) * int(group_size)) + offset ] = x;
     __syncthreads();
 
     // only the threads of a single group reduce the above data
@@ -126,7 +131,13 @@ struct cta_reduce_t {
     int count = nt, op_t op = op_t(), bool all_return = true) const {
 
     // Store your data into shared memory.
-    storage.data[tid] = x;
+    // storage.data[tid] = x;
+        // it has to be reverse strided
+    int k = int(count*1.0/group_size) ;
+    int r= count % group_size;
+    int offset = int(tid*1.0/k);
+    // index = bucket + offset; bucket = tid%(k+1)*group_size
+    storage.data[((tid%(k+1)) * int(group_size)) + offset ] = x;
     __syncthreads();
 
     if(tid < group_size) {

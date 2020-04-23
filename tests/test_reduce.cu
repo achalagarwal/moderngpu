@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
 
   typedef launch_params_t<32*6, 10> launch_t;
 
-  for(int count = 1280; count < 128001; count += count / 100) {
+  for(int count = 1280; count < 1281; count += count / 100) {
     mem_t<int> input = // fill_random(0, 100, count, false, context);
       // fill(2, count, context);
       fill_random(7, 100, count, true,context);
@@ -49,8 +49,26 @@ int main(int argc, char** argv) {
     // std::vector<int> result2 = from_mem(reduction);
 
     // // host reduce using std::accumulate.
-    // std::vector<int> input_host = from_mem(input);
-    // int ref = std::accumulate(input_host.begin(), input_host.end(), 0);
+    std::vector<int> input_host = from_mem(input);
+    int counter = 1;
+        int max = 0;
+        int mode = input_host.at(0);
+        for (int pass = 0; pass < input_host.size() - 1; pass++)
+        {
+           if ( input_host.at(pass) ==input_host.at(pass+1) )
+           {
+              counter++;
+              if ( counter > max )
+              {
+                  max = counter;
+                  mode = input_host.at(pass);
+              }
+           } else
+              counter = 1; // reset counter.
+        }
+    printf("Mode is %d", max);
+    // for(int i=0; i < input_host.size(); i++)
+    // printf("%d\n", input_host.at(i));    // int ref = std::accumulate(input_host.begin(), input_host.end(), 0);
 
     // if(result1[0] != ref || result2[0] != ref) {
     //   printf("reduce:           %d\n", result1[0]);
