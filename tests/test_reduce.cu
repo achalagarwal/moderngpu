@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
 
   standard_context_t context;
 
-  typedef launch_params_t<32*6, 10> launch_t;
+  typedef launch_params_t<32*1, 20> launch_t;
 
   for(int count = 1280; count < 1281; count += count / 100) {
     mem_t<int> input = // fill_random(0, 100, count, false, context);
@@ -37,12 +37,7 @@ int main(int argc, char** argv) {
 
     // printf("Is there an error? %d", from_mem(reduction).at(0).current_count);
     // return 0;
-    reduce<launch_t>(input_data, count, reduction.data(), perform_t<int>(), perform_t<quad>(), 
-      context);
-    context.synchronize();
-    std::vector<quad> result1 = from_mem(reduction);
-    printf("reduce:  %d\t%d\t%d\t%d\n", result1[0].best_count, result1[0].best_element, result1[0].left_count, result1[0].right_count);
-    // // transform_reduce()
+    
     // // construct a lambda that returns input_data[index].
     // auto f = [=]MGPU_DEVICE(int index) { return input_data[index]; };
     // //transform_reduce(f, count, reduction.data(), plus_t<int>(), context);
@@ -66,7 +61,13 @@ int main(int argc, char** argv) {
            } else
               counter = 1; // reset counter.
         }
-    printf("Mode is %d", max);
+    printf("Mode is %d and value is %d", max, mode);
+    reduce<launch_t>(input_data, count, reduction.data(), perform_t<int>(), perform_t<quad>(), 
+      context);
+    context.synchronize();
+    std::vector<quad> result1 = from_mem(reduction);
+    printf("reduce:  %d\t%d\t%d\t%d\n", result1[0].best_count, result1[0].best_element, result1[0].left_count, result1[0].right_count);
+    // // transform_reduce()
     // for(int i=0; i < input_host.size(); i++)
     // printf("%d\n", input_host.at(i));    // int ref = std::accumulate(input_host.begin(), input_host.end(), 0);
 

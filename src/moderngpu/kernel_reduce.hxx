@@ -53,7 +53,7 @@ void reduce2(input_it input, int count, output_it reduction, op_t op, op_tt op2,
     strided_iterate<nt, vt>([&](int i, int j) {
       scalar =quad(  i ? op(scalar, x[i]) : x[i]);
     }, tid, tile.count());
-
+    
     // Reduce to a scalar per CTA.
     scalar = reduce_t().reduce(tid, scalar, shared_reduce, 
       min(tile.count(), (int)nt), op2, false);
@@ -110,9 +110,9 @@ void reduce(input_it input, int count, output_it reduction, op_t op, op_tt op2,
 
     quad scalar;
 
-    if(!tid){
+    if(tid==121){
       strided_iterate<nt, vt>([&](int i, int j) {
-        printf("Ele in thread at %d: %d", i, x[i]);
+        printf("\nEle in thread %d at %d: %d", tid, i, x[i]);
       scalar = i ? op(scalar, x[i]) : (quad){x[0],1, x[0],1,x[0],1};
     }, tid, tile.count());
     }
@@ -123,15 +123,15 @@ void reduce(input_it input, int count, output_it reduction, op_t op, op_tt op2,
     }
     // printf("Tile.count() %d\n", tile.count());
 
-    // if(tid) printf("reduce:  %d\t%d\t%d\t%d\n", scalar.best_count, scalar.best_element, scalar.left_count, scalar.right_count);
+    if(tid==121) printf("reduce:  %d\t%d\t%d\t%d\n", scalar.best_count, scalar.best_element, scalar.left_count, scalar.right_count);
 
-
+    // if(tid==121)
     // Reduce to a scalar per CTA.
     scalar = reduce_t().reduce(tid, scalar, shared_reduce, 
       min(tile.count(), (int)nt), op2, false);
     // if(!tid) printf("Per cta:%d\n", scalar.best_count);
 
-    if(!tid) {printf("%d\n", num_ctas);
+    if(!tid) {printf("\n%d\n", num_ctas);
 
       if(1 == num_ctas) *reduction = scalar;
       else partials_data[cta] = scalar;

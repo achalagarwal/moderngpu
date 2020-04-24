@@ -332,83 +332,83 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
 };
 
 
-template<typename quad_t, typename type_t=int>
-struct perform_qt: public std::binary_function<quad_t, quad_t, quad_t> {
+// template<typename quad_t, typename type_t=int>
+// struct perform_qt: public std::binary_function<quad_t, quad_t, quad_t> {
 
-  MGPU_HOST_DEVICE quad_t operator()(quad_t a, quad_t b) const {
+//   MGPU_HOST_DEVICE quad_t operator()(quad_t a, quad_t b) const {
 
-//     struct quad{
-//   int left_count;
-//   int left_element;
+// //     struct quad{
+// //   int left_count;
+// //   int left_element;
 
-//   int current_element;
-//   int current_count;
+// //   int current_element;
+// //   int current_count;
 
-//   int best_element;
-//   int best_count;
+// //   int best_element;
+// //   int best_count;
 
-//   int right_count;
-//   int right_element;
-// };
-    // b is the element to the right of a
+// //   int right_count;
+// //   int right_element;
+// // };
+//     // b is the element to the right of a
 
-    // we need to generate a quad again
-    // but the quad will only have 6 useful entries
-    // left, best, right
+//     // we need to generate a quad again
+//     // but the quad will only have 6 useful entries
+//     // left, best, right
 
-    //l1, b1, r1 --- l2, b2, r2
-    //l3, b3, r3
-    // we send a after modifying it
+//     //l1, b1, r1 --- l2, b2, r2
+//     //l3, b3, r3
+//     // we send a after modifying it
 
-    // update best
-    if (b.left_element == a.right_element){
-      // after this condition we will never use b.left_element
-      // this means that we can use b.left_element to store something else instead of creating a stack variable
-      // this is done because moderngpu has storage requirements tied to the function 
-      // and we should not be creating extra stack variables
-      // is this true?
+//     // update best
+//     if (b.left_element == a.right_element){
+//       // after this condition we will never use b.left_element
+//       // this means that we can use b.left_element to store something else instead of creating a stack variable
+//       // this is done because moderngpu has storage requirements tied to the function 
+//       // and we should not be creating extra stack variables
+//       // is this true?
 
-      // the boundaries overlap
-      // so we can add the counts
-      // we store it in b.left_element
-      b.left_element = a.right_count + b.left_count;
-      if (b.left_element > a.best_count && b.left_element >= b.best_count){
-        a.best_element = a.right_element;
-        a.best_count = b.left_element;
-      }
+//       // the boundaries overlap
+//       // so we can add the counts
+//       // we store it in b.left_element
+//       b.left_element = a.right_count + b.left_count;
+//       if (b.left_element > a.best_count && b.left_element >= b.best_count){
+//         a.best_element = a.right_element;
+//         a.best_count = b.left_element;
+//       }
         
-      else if(b.left_element < b.best_count){
-        a.best_element = b.best_element;
-        a.best_count = b.best_count;
-      }
-      // else if(a.current_count <= a.best_count){
-      // we don't need to change anything}
+//       else if(b.left_element < b.best_count){
+//         a.best_element = b.best_element;
+//         a.best_count = b.best_count;
+//       }
+//       // else if(a.current_count <= a.best_count){
+//       // we don't need to change anything}
 
     
-    }
-    // they don't overlap
-    // which means we need to compare the two bests for the bests
-    else{
-      a.best_count = max(a.best_count, b.best_count);
-      a.best_element = a.best_element >= b.best_element?a.best_element:b.best_element;
-    }
+//     }
+//     // they don't overlap
+//     // which means we need to compare the two bests for the bests
+//     else{
+//       a.best_count = max(a.best_count, b.best_count);
+//       a.best_element = a.best_element >= b.best_element?a.best_element:b.best_element;
+//     }
 
-    // update the left
-    if (a.left_element == a.best_element){
-      a.left_count = a.best_count;
-    }
-    // update the right
-    a.right_element = b.right_element;
-    if (a.right_element == a.best_count){
-      a.right_count = a.best_count;
-    }
-    else{
-      a.right_count = b.right_count;
-    }
+//     // update the left
+//     if (a.left_element == a.best_element){
+//       a.left_count = a.best_count;
+//     }
+//     // update the right
+//     a.right_element = b.right_element;
+//     if (a.right_element == a.best_count){
+//       a.right_count = a.best_count;
+//     }
+//     else{
+//       a.right_count = b.right_count;
+//     }
     
-    return a;
-  }
-};
+//     return a;
+//   }
+// };
 
 // template<typename type_t>
 
