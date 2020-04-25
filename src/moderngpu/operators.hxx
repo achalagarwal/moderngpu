@@ -243,8 +243,8 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
       }
         
       else if(b.left_element < b.best_count){
-        a.best_element = b.best_element;
-        a.best_count = b.best_count;
+      a.best_element = a.best_count >= b.best_count?a.best_element:b.best_element;
+      a.best_count = max(a.best_count, b.best_count);
       }
       // else if(a.current_count <= a.best_count){
       // we don't need to change anything}
@@ -254,9 +254,9 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
     // they don't overlap
     // which means we need to compare the two bests for the bests
     else if (b.left_element != a.right_element){
-       if(a.best_element == 28 && b.best_element==43)printf("Ever here?");
-      a.best_count = max(a.best_count, b.best_count);
+      //  if(a.best_element == 28 && b.best_element==43)printf("Ever here?");
       a.best_element = a.best_count >= b.best_count?a.best_element:b.best_element;
+      a.best_count = max(a.best_count, b.best_count);
     }
 
     // update the left
@@ -292,8 +292,8 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
       }
         
       else if(a.left_element < a.best_count){
-        b.best_element = a.best_element;
-        b.best_count = a.best_count;
+        b.best_count = max(b.best_count, a.best_count);
+      b.best_element = b.best_count >= a.best_count?b.best_element:a.best_element;
       }
       // else if(b.current_count <=b.best_count){
       // we don't need to change anything}
