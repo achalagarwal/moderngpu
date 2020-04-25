@@ -197,6 +197,7 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
 
   MGPU_HOST_DEVICE quad operator()(quad a, quad b) const  {
 
+    // if(a.best_element == 28 && b.best_element == 53)
 //     struct quad{
 //   int left_count;
 //   int left_element;
@@ -222,6 +223,8 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
 
     // update best
     // assert(b.left_element>=a.right_element);
+
+    if(a.left_element < b.right_element){
     if (b.left_element == a.right_element){
       // after this condition we will never use b.left_element
       // this means that we can use b.left_element to store something else instead of creating a stack variable
@@ -251,7 +254,7 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
     // which means we need to compare the two bests for the bests
     else{
       a.best_count = max(a.best_count, b.best_count);
-      a.best_element = a.best_element >= b.best_element?a.best_element:b.best_element;
+      a.best_element = a.best_count >= b.best_count?a.best_element:b.best_element;
     }
 
     // update the left
@@ -268,6 +271,55 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
     }
     
     return a;
+  }
+  else{
+       if (a.left_element == b.right_element){
+      // after this condition we will never use b.left_element
+      // this means that we can use b.left_element to store something else instead of creating a stack variable
+      // this is done because moderngpu has storage requirements tied to the function 
+      // and we should not be creating extra stack variables
+      // is this true?
+
+      // the boundaries overlap
+      // so we can add the counts
+      // we store it in b.left_element
+      a.left_element = b.right_count + a.left_count;
+      if (a.left_element > b.best_count && a.left_element >= a.best_count){
+        b.best_element = b.right_element;
+        b.best_count = a.left_element;
+      }
+        
+      else if(a.left_element < a.best_count){
+        b.best_element = a.best_element;
+        b.best_count = a.best_count;
+      }
+      // else if(b.current_count <=b.best_count){
+      // we don't need to change anything}
+
+    
+    }
+    // they don't overlap
+    // which means we need to compare the two bests for the bests
+    else{
+      b.best_count = max(b.best_count, a.best_count);
+      b.best_element = b.best_element >= a.best_element?b.best_element:a.best_element;
+    }
+
+    // update the left
+    if (b.left_element == b.best_element){
+      b.left_count = b.best_count;
+    }
+    // update the right
+    b.right_element = a.right_element;
+    if (b.right_element == b.best_element){
+      b.right_count =b.best_count;
+    }
+    else{
+      b.right_count = a.right_count;
+    }
+    
+    return b;
+  }
   }
 
 
