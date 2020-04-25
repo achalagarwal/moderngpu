@@ -27,12 +27,12 @@ struct shfl_reduce_t {
         // if(lane==16) printf("best count: %d\n", x.best_count);
         // if(lane==16) {printf("offset's best count %d\n", shfl_xor(-1, x, offset).best_count);}
         // if((lane + offset) % group_size > lane){
-          quad y = shfl_xor(-1, x, offset);
-          // if(lane == 6 || lane == 7)printf("\nlane: %d, offset: %d, borrowed (best): %d  %d  %d %d %d %d , mine: %d  %d  %d %d %d %d ",
-          // lane, offset, y.best_element, y.best_count, y.left_element, y.left_count, y.right_element, y.right_count, x.best_element, x.best_count, x.left_element, x.left_count, x.right_element, x.right_count);
+          quad y = shfl_xor(lane, x, offset);
+          printf("\nlane: %d, offset: %d, borrowed (best): %d  %d  %d %d %d %d , mine: %d  %d  %d %d %d %d ",
+          lane, offset, y.best_element, y.best_count, y.left_element, y.left_count, y.right_element, y.right_count, x.best_element, x.best_count, x.left_element, x.left_count, x.right_element, x.right_count);
           x = op(x, y);
-          __syncthreads();
-          // if(lane == 6 || lane == 7)printf("\nlane: %d, offset: %d, afterop: %d %d %d %d %d %d", lane, offset, x.best_element, x.best_count, x.left_element, x.left_count, x.right_element, x.right_count);
+          // __syncthreads();
+          printf("\nlane: %d, offset: %d, afterop: %d %d %d %d %d %d", lane, offset, x.best_element, x.best_count, x.left_element, x.left_count, x.right_element, x.right_count);
 
         // }
         // else{
@@ -86,7 +86,7 @@ struct cta_reduce_t {
 
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 300
 
-  typedef shfl_reduce_t<quad_t, group_size> group_reduce_t;
+  typedef shfl_reduce_t<quad, group_size> group_reduce_t;
 
   template<typename op_t = plus_t<type_t>, typename stype_t>
   MGPU_DEVICE quad_t reduce(int tid, quad_t x, storage_t<stype_t>& storage, 
@@ -173,7 +173,7 @@ struct cta_reduce_t {
     // }
   //  if(tid==189){
       // if(!tid)printf("Count, k and r: %d %d %d", count, k ,r);
-      printf("\ntid: %d and the  Index where it goes: %d -- new_tid: %d", tid, pos);
+      // printf("\ntid: %d and the  Index where it goes: %d -- tracker: %d", tid, pos, x.tracker);
   //     printf("\nwrong val? %d %d", x.best_element, x.best_count);
     // }
     // if(tid==12)printf("position of struct is: %d", pos);
@@ -187,12 +187,12 @@ struct cta_reduce_t {
     
     if(tid < group_size) {
       x = storage.data[tid];
-       
+      x.tracker = tid;
       // printf("\nstruct for 32 threads, tid = %d, best_ele =  %d, best_count = %d", tid, x.best_element, x.best_count);
       // Each thread scans within its lane.
       if(tid ==0){
         strided_iterate<group_size, num_items>([&](int i, int j) {
-        printf("reduce iter: %d on tid:%d  %d\t%d\t%d\t%d\t%d\t%d\n",i, tid, x.best_count, x.best_element, x.left_count, x.left_element, x.right_count, x.right_element);
+        // printf("reduce iter: %d on tid:%d  %d\t%d\t%d\t%d\t%d\t%d\t%d\n",i, tid, storage.data[j].best_count, storage.data[j].best_element, storage.data[j].left_count, storage.data[j].left_element, storage.data[j].right_count, storage.data[j].right_element,storage.data[j].tracker);
 
         if(i > 0) x = op(x, storage.data[j]);
       }, tid, count);
@@ -205,7 +205,7 @@ struct cta_reduce_t {
 
       // __syncthreads();
       // if(tid){
-        printf("final reduce on tid:%d  %d\t%d\t%d\t%d\t%d\t%d\n", tid, x.best_count, x.best_element, x.left_count, x.left_element, x.right_count, x.right_element);
+        // printf("final reduce on tid:%d  %d\t%d\t%d\t%d\t%d\t%d\t%d\n", tid, x.best_count, x.best_element, x.left_count, x.left_element, x.right_count, x.right_element, x.tracker);
 
       // }
       // if(!tid)  printf("Before shuffle reduce:%d\n", x.best_count);

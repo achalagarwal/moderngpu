@@ -190,6 +190,7 @@ struct quad{
   int right_element;
   int right_count;
   
+  int tracker;
 };
 template<typename type_t=int>
 struct perform_t: public std::binary_function<quad, type_t, quad> {
@@ -252,7 +253,8 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
     }
     // they don't overlap
     // which means we need to compare the two bests for the bests
-    else{
+    else if (b.left_element != a.right_element){
+       if(a.best_element == 28 && b.best_element==43)printf("Ever here?");
       a.best_count = max(a.best_count, b.best_count);
       a.best_element = a.best_count >= b.best_count?a.best_element:b.best_element;
     }
@@ -301,8 +303,9 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
     // they don't overlap
     // which means we need to compare the two bests for the bests
     else{
+      // printf("Ever here?");
       b.best_count = max(b.best_count, a.best_count);
-      b.best_element = b.best_element >= a.best_element?b.best_element:a.best_element;
+      b.best_element = b.best_count >= a.best_count?b.best_element:a.best_element;
     }
 
     // update the left
