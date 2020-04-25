@@ -100,6 +100,8 @@ void reduce(input_it input, int count, output_it reduction, op_t op, op_tt op2,
     // does this return values in order?
     // yes
     range_t tile = get_tile(cta, nv, count);
+    // this verifies that CTAs split the values amongst themselves regularly
+    // if(!tid)printf("CTA: %d , start: %d, end: %d", cta, input[tile.begin], input[tile.begin+tile.count()-1]);
     array_t<type_t, vt> x = mem_to_reg_thread<nt, vt>(input + tile.begin, 
       tid, tile.count(), vals );
 
@@ -110,8 +112,9 @@ void reduce(input_it input, int count, output_it reduction, op_t op, op_tt op2,
 
     quad scalar;
 
-    if(tid==121){
+    if(cta && tid==nt-1){
       strided_iterate<nt, vt>([&](int i, int j) {
+        // this proves that each thread gets regular partitions
         printf("\nEle in thread %d at %d: %d", tid, i, x[i]);
       scalar = i ? op(scalar, x[i]) : (quad){x[0],1, x[0],1,x[0],1};
     }, tid, tile.count());
@@ -123,10 +126,15 @@ void reduce(input_it input, int count, output_it reduction, op_t op, op_tt op2,
     }
     // printf("Tile.count() %d\n", tile.count());
 
-    if(tid==121) printf("reduce:  %d\t%d\t%d\t%d\n", scalar.best_count, scalar.best_element, scalar.left_count, scalar.right_count);
-
+    //if(tid==121) printf("reduce:  %d\t%d\t%d\t%d\n", scalar.best_count, scalar.best_element, scalar.left_count, scalar.right_count);
+    if(!cta){
+      printf("tid: %d , reduce:  %d\t%d\t%d\t%d\t%d\t%d\n", tid, scalar.best_count, scalar.best_element, scalar.left_count,scalar.left_element ,scalar.right_count,scalar.right_element);
+    }
     // if(tid==121)
     // Reduce to a scalar per CTA.
+
+    if(cta)printf("Num threads: %d ", nt);
+    if(cta)printf("Num tile count: %d ", tile.count());
     scalar = reduce_t().reduce(tid, scalar, shared_reduce, 
       min(tile.count(), (int)nt), op2, false);
     // if(!tid) printf("Per cta:%d\n", scalar.best_count);

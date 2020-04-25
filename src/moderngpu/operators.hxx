@@ -195,7 +195,7 @@ template<typename type_t=int>
 struct perform_t: public std::binary_function<quad, type_t, quad> {
 
 
-  MGPU_HOST_DEVICE quad operator()(quad a, quad b) const {
+  MGPU_HOST_DEVICE quad operator()(quad a, quad b) const  {
 
 //     struct quad{
 //   int left_count;
