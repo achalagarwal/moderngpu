@@ -209,20 +209,20 @@ serial_merge(const type_t* keys_shared, merge_range_t range, comp_t comp,
   return merge_pair;
 }
 
-
+//perform_t<int>() send
 template<bounds_t bounds, int vt, typename type_t, typename comp_t>
-MGPU_DEVICE merge_pair_t<type_t, vt> 
+MGPU_DEVICE quad 
 serial_merge_special(const type_t* keys_shared, merge_range_t range, comp_t comp, 
-  bool sync = true) {
+  bool sync = true ) {
 
   // so this is the main merge where we need to incorporate our extra information
   // for computing mode
-
+  auto op=perform_t<int>();
   type_t a_key = keys_shared[range.a_begin];
   type_t b_key = keys_shared[range.b_begin];
 
-  merge_pair_t<type_t, vt> merge_pair;
-
+  // merge_pair_t<type_t, vt> merge_pair;
+  quad scalar;
   // assuming this is efficient
   // int counter = 1;
   // counter is not required as current_index(of not equals) - start_index is the count
@@ -257,42 +257,48 @@ serial_merge_special(const type_t* keys_shared, merge_range_t range, comp_t comp
     
     // the keys hold the value and the index is a more 
     // global value
-    merge_pair.keys[i] = p ? a_key : b_key;
+    int key = p ? a_key : b_key;
 
+    if(!i){
+      scalar = (quad){key, 1, key, 1, key ,1};
+    }
+    else{
+      scalar = op(scalar, key);
+    }
     // if we store the above value in a register is it better?
 
-    if(i>1 && (merge_pair.keys[i-1] != merge_pair.keys[i])){
-      // can this be done without an if?
-      // using the math
-      // i.e. i-start_index-1 == 0 and otherwise
-      // or that i - start_index -2 is negative
-      if(i-start_index>1){
-        // here we set it equal to a negative value to denote that its a count
-        merge_pair.keys[start_index] =  -(i - start_index);
-        start_index = i;
+    // if(i>1 && (merge_pair.keys[i-1] != merge_pair.keys[i])){
+    //   // can this be done without an if?
+    //   // using the math
+    //   // i.e. i-start_index-1 == 0 and otherwise
+    //   // or that i - start_index -2 is negative
+    //   if(i-start_index>1){
+    //     // here we set it equal to a negative value to denote that its a count
+    //     merge_pair.keys[start_index] =  -(i - start_index);
+    //     start_index = i;
 
-      }
-    }
+    //   }
+    // }
 
-    else if(i==vt-1 && merge_pair.keys[i-1] == merge_pair.keys[i]){
-     merge_pair.keys[start_index] =  -(i - start_index + 1);
-    }
+    // else if(i==vt-1 && merge_pair.keys[i-1] == merge_pair.keys[i]){
+    //  merge_pair.keys[start_index] =  -(i - start_index + 1);
+    // }
 
 
-    // do we use multiple statements in one if or multiple ifs with one statement?
+    // // do we use multiple statements in one if or multiple ifs with one statement?
       
     
-    merge_pair.indices[i] = index;
+    // merge_pair.indices[i] = index;
 
-    type_t c_key = keys_shared[++index];
-    if(p) a_key = c_key, range.a_begin = index;
-    else b_key = c_key, range.b_begin = index;
+    // type_t c_key = keys_shared[++index];
+    // if(p) a_key = c_key, range.a_begin = index;
+    // else b_key = c_key, range.b_begin = index;
   });
 
   if(sync) __syncthreads();
 
   // return best_key;
-  return merge_pair;
+  return scalar;
 }
 
 // Load arrays a and b from global memory and merge into register.
@@ -326,7 +332,7 @@ cta_merge_from_mem(a_it a, b_it b, merge_range_t range_mem, int tid,
 
 template<bounds_t bounds, int nt, int vt, typename a_it, typename b_it, 
   typename type_t, typename comp_t, int shared_size>
-MGPU_DEVICE type_t 
+MGPU_DEVICE quad 
 
 // special is the last iteration of the sort
 cta_merge_from_mem_special(a_it a, b_it b, merge_range_t range_mem, int tid, 
@@ -348,8 +354,7 @@ cta_merge_from_mem_special(a_it a, b_it b, merge_range_t range_mem, int tid,
   // Compute the ranges of the sources in shared memory. The end iterators
   // of the range are inaccurate, but still facilitate exact merging, because
   // only vt elements will be merged.
-  type_t merged = serial_merge_special<bounds, vt>(keys_shared,
-    range_local.partition(mp, diag), comp);
+  quad merged = serial_merge_special<bounds, vt>(keys_shared,range_local.partition(mp, diag), comp);
 
   return merged;
 };

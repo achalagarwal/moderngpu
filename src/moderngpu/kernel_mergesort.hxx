@@ -5,6 +5,7 @@
 #include "kernel_merge.hxx"
 #include "cta_mergesort.hxx"
 #include "intrinsics.hxx"
+#include "cta_reduce.hxx"
 
 BEGIN_MGPU_NAMESPACE
   
@@ -101,7 +102,7 @@ void mergesort(key_t* keys_input, val_t* vals_input, int count,
       nv, comp, context);
     int* mp_data = partitions.data();
 
-    auto k = [=] MGPU_DEVICE(int tid, int cta) {
+    if(pass<num_passes-1){auto k = [=] MGPU_DEVICE(int tid, int cta) {
       typedef typename launch_t::sm_ptx params_t;
       enum { nt = params_t::nt, vt = params_t::vt, nv = nt * vt };
 
@@ -134,13 +135,13 @@ void mergesort(key_t* keys_input, val_t* vals_input, int count,
       //     indices, tid, vals_output + tile.begin);
       // }
     };
-
+    }
     // if this is the last pass, then this is the final merge
     // ofcourse we need to hook in here and get the run length encoding
     // from that final array we can get the max!!!!
 
     // for this we will redefine k to our liking
-    if(pass == num_passes-1){
+    else if(pass == num_passes-1){
       printf("HERE");
       auto k = [=] MGPU_DEVICE(int tid, int cta) {
         printf("Here");
@@ -158,12 +159,18 @@ void mergesort(key_t* keys_input, val_t* vals_input, int count,
       merge_range_t range = compute_mergesort_range(count, cta, coop, nv, 
         mp_data[cta + 0], mp_data[cta + 1]);
 
-      key_t answer = cta_merge_from_mem_special<bounds_lower, nt, vt>(
+      quad answer = cta_merge_from_mem_special<bounds_lower, nt, vt>(
         keys_input, keys_input, range, tid, comp, shared.keys);
 
-      
+    typedef cta_reduce_t<nt, quad, quad> reduce_t;
+    __shared__ typename reduce_t::storage_t<quad> shared_reduce;
+
+      answer = reduce_t().reduce(tid, answer, shared_reduce, 
+      min(tile.count(), (int)nt), perform_t<quad>(), false);
+
+      printf("%d %d %d %d %d %d is the answer", answer.best_count, answer.best_element, answer.left_count, answer.left_element, answer.right_count, answer.right_element);
       // Store merged values back out.
-      keys_input[0] = answer;
+      // keys_input[0] = answer;
       // keys_output[0] = answer;
       // shared.keys[0] = answer;
       // shared.keys[1]

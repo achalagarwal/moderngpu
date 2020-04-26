@@ -6,8 +6,8 @@ int main(int argc, char** argv) {
   standard_context_t context;
 
   // Loop from 1K to 100M.
-  for(int count = 2000; count <= 100000000; count += count / 10) {
-    for(int it = 1; it <= 5; ++it) {
+  for(int count = 20000; count <= 20000; count += count / 10) {
+    for(int it = 1; it <= 1; ++it) {
 
       mem_t<int> data = fill_random(0, 100000, count, false, context);
 
