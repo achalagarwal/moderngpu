@@ -123,7 +123,8 @@ void mergesort(key_t* keys_input, val_t* vals_input, int count,
       // Store merged values back out.
       reg_to_mem_thread<nt>(merge.keys, tid, tile.count(), 
         keys_output + tile.begin, shared.keys);
-
+      
+      printf("done here");
       // if(has_values) {
       //   // Transpose the indices from thread order to strided order.
       //   array_t<int, vt> indices = reg_thread_to_strided<nt>(merge.indices,
@@ -135,6 +136,8 @@ void mergesort(key_t* keys_input, val_t* vals_input, int count,
       //     indices, tid, vals_output + tile.begin);
       // }
     };
+        cta_transform<launch_t>(k, count, context);
+
     }
     // if this is the last pass, then this is the final merge
     // ofcourse we need to hook in here and get the run length encoding
@@ -142,7 +145,7 @@ void mergesort(key_t* keys_input, val_t* vals_input, int count,
 
     // for this we will redefine k to our liking
     else if(pass == num_passes-1){
-      printf("HERE");
+      printf("FERE");
       auto k = [=] MGPU_DEVICE(int tid, int cta) {
         printf("Here");
       typedef typename launch_t::sm_ptx params_t;
@@ -188,8 +191,10 @@ void mergesort(key_t* keys_input, val_t* vals_input, int count,
       //     indices, tid, vals_output + tile.begin);
       // }
     };
+        cta_transform<launch_t>(k, count, context);
+
     }
-    cta_transform<launch_t>(k, count, context);
+    // cta_transform<launch_t>(k, count, context);
 
     // std::swap(keys_input, keys_output);
     // std::swap(vals_input, vals_output);
