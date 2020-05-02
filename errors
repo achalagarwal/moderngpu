@@ -1,0 +1,10 @@
+/home/achal/moderngpu/src/moderngpu/cta_merge.hxx(351): error: no suitable conversion function from "mgpu::merge_pair_t<int, 17>" to "int" exists
+          detected during:
+            instantiation of "type_t mgpu::cta_merge_from_mem_special<bounds,nt,vt,a_it,b_it,type_t,comp_t,shared_size>(a_it, b_it, mgpu::merge_range_t, int, comp_t, type_t (&)[shared_size]) [with bounds=mgpu::bounds_lower, nt=128, vt=17, a_it=int *, b_it=int *, type_t=int, comp_t=mgpu::less_t<int>, shared_size=2177]" 
+/home/achal/moderngpu/src/moderngpu/kernel_mergesort.hxx(162): here
+            instantiation of "void mgpu::mergesort(key_t *, val_t *, int, comp_t, mgpu::context_t &) [with launch_arg_t=mgpu::empty_t, key_t=int, val_t=mgpu::empty_t, comp_t=mgpu::less_t<int>]" 
+/home/achal/moderngpu/src/moderngpu/kernel_mergesort.hxx(198): here
+            instantiation of "void mgpu::mergesort(key_t *, int, comp_t, mgpu::context_t &) [with launch_arg_t=mgpu::empty_t, key_t=int, comp_t=mgpu::less_t<int>]" 
+tests/test_mergesort.cu(14): here
+
+1 error detected in the compilation of "/tmp/tmpxft_000046d0_00000001-8_test_mergesort.cpp1.ii".
