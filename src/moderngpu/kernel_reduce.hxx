@@ -59,8 +59,12 @@ void reduce2(input_it input, int count, output_it reduction, op_t op, op_tt op2,
       min(tile.count(), (int)nt), op2, false);
 
     if(!tid) {
+      printf("%d\n", count);
       printf("%d\n", num_ctas);
-      if(1 == num_ctas) *reduction = scalar;
+      if(1 == num_ctas){*reduction = scalar;
+          printf("The answer is %d %d\n", scalar.best_element, scalar.best_count);
+
+      }
       else partials_data[cta] = scalar;
     }
   };
@@ -73,6 +77,7 @@ void reduce2(input_it input, int count, output_it reduction, op_t op, op_tt op2,
   if(num_ctas > 1)
     reduce2<launch_params_t<32, 4>,quad*, quad* >(partials_data, num_ctas, reduction,  perform_t<quad>(),  perform_t<quad>(),
       context);
+
 }
 
 template<typename launch_arg_t = empty_t, typename input_it, 
@@ -115,7 +120,7 @@ void reduce(input_it input, int count, output_it reduction, op_t op, op_tt op2,
     if(cta && tid==nt-1){
       strided_iterate<nt, vt>([&](int i, int j) {
         // this proves that each thread gets regular partitions
-        printf("\nEle in thread %d at %d: %d", tid, i, x[i]);
+        // printf("\nEle in thread %d at %d: %d", tid, i, x[i]);
       scalar = i ? op(scalar, x[i]) : (quad){x[0],1, x[0],1,x[0],1};
     }, tid, tile.count());
     }
@@ -127,14 +132,14 @@ void reduce(input_it input, int count, output_it reduction, op_t op, op_tt op2,
     // printf("Tile.count() %d\n", tile.count());
 
     //if(tid==121) printf("reduce:  %d\t%d\t%d\t%d\n", scalar.best_count, scalar.best_element, scalar.left_count, scalar.right_count);
-    if(!cta){
-      printf("tid: %d , reduce:  %d\t%d\t%d\t%d\t%d\t%d\n", tid, scalar.best_count, scalar.best_element, scalar.left_count,scalar.left_element ,scalar.right_count,scalar.right_element);
-    }
+    // if(!cta){
+    //   printf("tid: %d , reduce:  %d\t%d\t%d\t%d\t%d\t%d\n", tid, scalar.best_count, scalar.best_element, scalar.left_count,scalar.left_element ,scalar.right_count,scalar.right_element);
+    // }
     // if(tid==121)
     // Reduce to a scalar per CTA.
 
-    if(cta)printf("Num threads: %d ", nt);
-    if(cta)printf("Num tile count: %d ", tile.count());
+    // if(cta)printf("Num threads: %d ", nt);
+    // if(cta)printf("Num tile count: %d ", tile.count());
     scalar = reduce_t().reduce(tid, scalar, shared_reduce, 
       min(tile.count(), (int)nt), op2, false);
     // if(!tid) printf("Per cta:%d\n", scalar.best_count);

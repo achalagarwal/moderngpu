@@ -222,7 +222,7 @@ serial_merge_special(const type_t* keys_shared, merge_range_t range, comp_t comp
   type_t b_key = keys_shared[range.b_begin];
 
   // merge_pair_t<type_t, vt> merge_pair;
-  quad scalar;
+  quad scalar=(quad){-1, 1, -1, 1, -1 ,1};
   // assuming this is efficient
   // int counter = 1;
   // counter is not required as current_index(of not equals) - start_index is the count
@@ -241,7 +241,7 @@ serial_merge_special(const type_t* keys_shared, merge_range_t range, comp_t comp
   // so to fix the neighbouring edge cases
   // we would need the first element to be updated, for uniformity we set rle in the beginning always
   // typically we would ignore values 
-
+  // printf("%d -- %d before\n",scalar.best_element, scalar.best_count);
   iterate<vt>([&](int i) {
 
     // i need another counter in this iterator
@@ -258,12 +258,14 @@ serial_merge_special(const type_t* keys_shared, merge_range_t range, comp_t comp
     // the keys hold the value and the index is a more 
     // global value
     int key = p ? a_key : b_key;
-
+    
     if(!i){
       scalar = (quad){key, 1, key, 1, key ,1};
+      // printf("%d -- %d init\n",scalar.best_element, scalar.best_count);
     }
     else{
       scalar = op(scalar, key);
+      // printf("%d -- %d wow\n",scalar.best_element, scalar.best_count);
     }
     // if we store the above value in a register is it better?
 
@@ -290,9 +292,9 @@ serial_merge_special(const type_t* keys_shared, merge_range_t range, comp_t comp
     
     // merge_pair.indices[i] = index;
 
-    // type_t c_key = keys_shared[++index];
-    // if(p) a_key = c_key, range.a_begin = index;
-    // else b_key = c_key, range.b_begin = index;
+    int c_key = keys_shared[++index];
+    if(p) a_key = c_key, range.a_begin = index;
+    else b_key = c_key, range.b_begin = index;
   });
 
   if(sync) __syncthreads();

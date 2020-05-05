@@ -3,9 +3,10 @@
 
 #include "transform.hxx"
 #include "kernel_merge.hxx"
+#include "kernel_reduce.hxx"
 #include "cta_mergesort.hxx"
 #include "intrinsics.hxx"
-
+#include "cta_reduce.hxx"
 BEGIN_MGPU_NAMESPACE
   
 template<typename keys_it, typename comp_t>
@@ -97,7 +98,7 @@ void mergesort(key_t* keys_input, val_t* vals_input, int count,
     mem_t<int> partitions = merge_sort_partitions(keys_input, count, coop,
       nv, comp, context);
     int* mp_data = partitions.data();
-
+    if(pass<num_passes-1){
     auto k = [=] MGPU_DEVICE(int tid, int cta) {
       typedef typename launch_t::sm_ptx params_t;
       enum { nt = params_t::nt, vt = params_t::vt, nv = nt * vt };
@@ -132,6 +133,66 @@ void mergesort(key_t* keys_input, val_t* vals_input, int count,
       }
     };
     cta_transform<launch_t>(k, count, context);
+    }
+    else{
+        mem_t<quad> partials(num_ctas, context);
+        quad* partials_data = partials.data();
+      auto k = [=] MGPU_DEVICE(int tid, int cta) {
+      typedef typename launch_t::sm_ptx params_t;
+      enum { nt = params_t::nt, vt = params_t::vt, nv = nt * vt };
+
+      __shared__ union {
+        key_t keys[nv + 1];
+        int indices[nv];
+      } shared;
+
+      range_t tile = get_tile(cta, nv, count);
+
+      // Load the range for this CTA and merge the values into register.
+      merge_range_t range = compute_mergesort_range(count, cta, coop, nv, 
+        mp_data[cta + 0], mp_data[cta + 1]);
+      // printf("Here");
+      quad merge = cta_merge_from_mem_special<bounds_lower, nt, vt>(
+        keys_input, keys_input, range, tid, comp, shared.keys);
+      // if(!tid)printf("%d and %d\n",merge.best_element, merge.best_count);
+
+      typedef cta_reduce_t<nt, quad, quad> reduce_t;
+    __shared__ typename reduce_t::storage_t<quad> shared_reduce;
+
+      merge = reduce_t().reduce(tid, merge, shared_reduce, 
+      min(tile.count(), (int)nt), perform_t<quad>(), false);
+      if(!tid) {
+      // printf("%d %d %d %d %d %d is the answer", merge.best_count, merge.best_element, merge.left_count, merge.left_element, merge.right_count, merge.right_element);
+
+      // printf("%d\n", num_ctas);
+      // if(1 == num_ctas) *reduction = scalar;
+      // else partials_data[cta] = scalar;
+      partials_data[cta] = merge;
+    }
+      // Store merged values back out.
+      // Store merged values back out.
+      // reg_to_mem_thread<nt>(merge.keys, tid, tile.count(), 
+      //   keys_output + tile.begin, shared.keys);
+
+      // if(has_values) {
+      //   // Transpose the indices from thread order to strided order.
+      //   array_t<int, vt> indices = reg_thread_to_strided<nt>(merge.indices,
+      //     tid, shared.indices);
+
+      //   // Gather the input values and merge into the output values.
+      //   transfer_two_streams_strided<nt>(vals_input + range.a_begin, 
+      //     range.a_count(), vals_input + range.b_begin, range.b_count(),
+      //     indices, tid, vals_output + tile.begin);
+      // }
+    };
+    cta_transform<launch_t>(k, count, context);
+    cudaDeviceSynchronize();
+      // mem_t<quad> reduction(1, context);
+
+  if(num_ctas > 1)
+    reduce2<launch_params_t<96, 3>,quad*, quad* >(partials_data, num_ctas, partials_data,  perform_t<quad>(),  perform_t<quad>(),
+      context);
+    }
 
     std::swap(keys_input, keys_output);
     std::swap(vals_input, vals_output);

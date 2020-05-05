@@ -28,11 +28,11 @@ struct shfl_reduce_t {
         // if(lane==16) {printf("offset's best count %d\n", shfl_xor(-1, x, offset).best_count);}
         // if((lane + offset) % group_size > lane){
           quad y = shfl_xor(lane, x, offset);
-          printf("\nlane: %d, offset: %d, borrowed (best): %d  %d  %d %d %d %d , mine: %d  %d  %d %d %d %d ",
-          lane, offset, y.best_element, y.best_count, y.left_element, y.left_count, y.right_element, y.right_count, x.best_element, x.best_count, x.left_element, x.left_count, x.right_element, x.right_count);
+          // printf("\nlane: %d, offset: %d, borrowed (best): %d  %d  %d %d %d %d , mine: %d  %d  %d %d %d %d ",
+          // lane, offset, y.best_element, y.best_count, y.left_element, y.left_count, y.right_element, y.right_count, x.best_element, x.best_count, x.left_element, x.left_count, x.right_element, x.right_count);
           x = op(x, y);
           // __syncthreads();
-          printf("\nlane: %d, offset: %d, afterop: %d %d %d %d %d %d", lane, offset, x.best_element, x.best_count, x.left_element, x.left_count, x.right_element, x.right_count);
+          // printf("\nlane: %d, offset: %d, afterop: %d %d %d %d %d %d", lane, offset, x.best_element, x.best_count, x.left_element, x.left_count, x.right_element, x.right_count);
 
         // }
         // else{
