@@ -38,8 +38,12 @@ MGPU_DEVICE merge_pair_t<type_t, vt> segmented_serial_merge(
   const type_t* keys_shared, merge_range_t range, range_t active, 
   comp_t comp, bool sync = true) {
 
+  // active is the active range
+  // if active range ends before we can stop comparing and keep pushing elements from a
   range.b_end = min(active.end, range.b_end);
 
+  // keys shared range a_begin
+  // 
   type_t a_key = keys_shared[range.a_begin];
   type_t b_key = keys_shared[range.b_begin];
 
@@ -89,14 +93,24 @@ struct cta_load_head_flags {
   MGPU_DEVICE int load(seg_it segments, const int* partitions_global,
     int tid, int cta, int count, storage_t& storage) {
 
+    // my global segment head
     int mp0 = partitions_global[0];
+    // next cta's global segment head
     int mp1 = partitions_global[1];
+
+    // first value in count array for the respective cta
     int gid = nv * cta;
+    // how many elements from behind
+    // i dont understand this: 
     count -= gid;
+    // maybe its specifically for the last cta?
+    // seems like it
+    // so count is how many elements in the last cta
+    // for all other cta's its a very weird value
 
     // Set the head flags for out-of-range keys.
     int head_flags = out_of_range_flags(vt * tid, vt, count);
-
+    // head flags is 1 for all the out of range entries (but only consider vt bits)
     if(mp1 > mp0) {
       // Clear the flag bytes, then loop through the indices and poke in
       // flag bytes.
@@ -110,6 +124,8 @@ struct cta_load_head_flags {
       __syncthreads();
 
       // Combine all the head flags for this thread.
+      // I need to understand what information is contained in the head flags to be able to use them to create
+      // the fused kernel for sort + reduce
       int first = vt * tid;
       int offset = first / 4;
       int prev = storage.words[offset];
@@ -210,7 +226,10 @@ struct cta_segsort_t {
     x = odd_even_sort(x, comp, head_flags);
 
     // Record the first and last occurrences of head flags in this segment.
+    // what happens when active.begin = nv?
     active.begin = head_flags ? (vt * tid - 1 + ffs(head_flags)) : nv;
+    // what happens when active.end = -1?
+    // unsigned -1 is all 1's
     active.end = head_flags ? (vt * tid + 31 - clz(head_flags)) : -1;
     storage.ranges[tid] = bfi(active.end, active.begin, 16, 16);
     __syncthreads();

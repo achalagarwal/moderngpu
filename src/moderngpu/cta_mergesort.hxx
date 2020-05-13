@@ -9,8 +9,12 @@ BEGIN_MGPU_NAMESPACE
 MGPU_HOST_DEVICE int out_of_range_flags(int first, int vt, int count) {
   int out_of_range = min(vt, first + vt - count);
   int head_flags = 0;
+  // if the thread has out of range keys, this is because even after subtracting with count, its index is positive
+  // it contains number of keys that are out of range
   if(out_of_range > 0) {
+    // mask is 1 for number of values that a thread has
     const int mask = (1<< vt) - 1;
+    //
     head_flags = mask & (~mask>> out_of_range);
   }
   return head_flags;

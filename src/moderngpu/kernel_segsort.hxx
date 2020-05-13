@@ -48,6 +48,9 @@ struct segsort_t {
     for(int i = 0; i < num_passes; ++i)
       capacity += div_up(num_ctas, 1<< i);
 
+    // capacity is just iteratively computing the number of ctas required in total, they are not all 
+    // synchronous
+    // in passes (starting from a higher value, to finally reducing to 1 cta)
     if(num_passes              ) keys_temp = mem_t<key_t>(count, context);
     if(num_passes && has_values) vals_temp = mem_t<val_t>(count, context);
 
@@ -61,11 +64,31 @@ struct segsort_t {
     vals_blocksort = (1 & num_passes) ? vals_dest : vals_source;
 
     // Allocate space for temporary variables.
+    // creating memory for storing capacity number of ranges, this is required as each cta has a specific
+    // range to look at
+
     merge_ranges = mem_t<range_t>(capacity, context);
+
+    // each pass requires a merge range?
+    // what is this?
+
     merge_list = mem_t<merge_range_t>(num_ctas, context);
+
+    // compressed ranges?
+    // need to guess their usage from when and where they are initiated
     compressed_ranges = mem_t<int>(num_ctas, context);
+
+    // need head flags for fusing kernel
+    // the other way to do is recompute head flags from segment heads in the second kernel
+    // will benchmark both these methods
+    // head_flags = mem_t<int>()
+    // just a copied list of compressed ranges presumably
     copy_list = mem_t<int>(num_ctas, context);
+
+    // status?
     copy_status = mem_t<int>(num_ctas, context);
+
+    // op counters 
     op_counters = fill<int2>(int2(), num_passes, context);
   }
 
@@ -104,7 +127,14 @@ struct segsort_t {
 
       // Load the partitions for the segment descriptors and extract head 
       // flags for each key.
+      // so each cta gets the first segment head index
+      // now for the last segment head, we need the next cta's segment head
+      // pretty smart
+      // the segment heads are distributed in binary_search_partitions
       int p[2] = { mp_data[cta], mp_data[cta + 1] };
+
+      // after using debugging and inspecting memory:
+      // confirmed that this stores 1 at segment heads
       int head_flags = load_head_flags_t().load(segments, p, tid, cta, 
         count, shared.load_head_flags);
 
@@ -177,14 +207,259 @@ struct segsort_t {
     int2* op_counters_data = op_counters.data();
 
     for(int pass = 0; pass < num_passes; ++pass) {
+
+      if(pass < num_passes-1){
+        int coop = 2<< pass;
+
+        //////////////////////////////////////////////////////////////////////////
+        // Partition the data within its segmented mergesort list.
+
+        enum { nt = 64 };
+        int num_partition_ctas = div_up(num_partitions, nt - 1);
+
+        auto partition_k = [=] MGPU_DEVICE(int tid, int cta) {
+          typedef cta_scan_t<nt, int> scan_t;
+          __shared__ union {
+            typename scan_t::storage_t scan;
+            int partitions[nt + 1];
+            struct { int merge_offset, copy_offset; };
+          } shared;
+
+          int partition = (nt - 1) * cta + tid;
+          int first = nv * partition;
+          // number of elements processed by the current thread
+          int count2 = min(nv, count - first);
+
+          int mp0 = 0;
+          
+          // tid < nt -1 --> ignore the last thread of each cta
+          // ignore the last partition too (its not necessary that the last thread of a cta gets the last partition)
+
+          bool active = (tid < nt - 1) && (partition < num_partitions - 1);
+          int range_index = partition>> pass;
+
+          // all threads of the first cta?
+          if(partition < num_partitions) {
+            
+            // supply the range to a thread
+            merge_range_t range = compute_mergesort_range(count, partition, 
+              coop, nv);
+            
+            // diag is the elements that are there in 
+            int diag = min(nv * partition - range.a_begin, range.total());
+
+            // indices[2]?
+            int indices[2] = { 
+              min(num_ranges - 1, ~1 & range_index), 
+              min(num_ranges - 1, 1 | range_index) 
+            };
+            range_t ranges[2];
+
+            if(pass > 0) {
+              ranges[0] = source_ranges[indices[0]];
+              ranges[1] = source_ranges[indices[1]];
+            } else {
+              iterate<2>([&](int i) {
+                int compressed = compressed_ranges_data[indices[i]];
+                int first = nv * indices[i];
+
+                ranges[i] = range_t { 0x0000ffff & compressed, compressed>> 16 };
+                if(nv != ranges[i].begin) ranges[i].begin += first;
+                else ranges[i].begin = count;
+                if(-1 != ranges[i].end) ranges[i].end += first;
+              });
+            }
+
+            range_t inner = { 
+              ranges[0].end, 
+              max(range.b_begin, ranges[1].begin) 
+            };
+            range_t outer = { 
+              min(ranges[0].begin, ranges[1].begin),
+              max(ranges[0].end, ranges[1].end)
+            };
+
+            // Segmented merge path on inner.
+            mp0 = segmented_merge_path(keys_source, range, inner, diag, comp);
+
+            // Store outer merge range.
+            if(active && 0 == diag)
+              dest_ranges[range_index / 2] = outer;
+          }
+          shared.partitions[tid] = mp0;
+          __syncthreads();
+
+          int mp1 = shared.partitions[tid + 1];
+          __syncthreads();
+
+          // Update the merge range to include partitioning.
+          merge_range_t range = compute_mergesort_range(count, partition, coop, 
+            nv, mp0, mp1);
+
+          // Merge if the source interval does not exactly cover the destination
+          // interval. Otherwise copy or skip.
+          range_t interval = (1 & range_index) ? 
+            range.b_range() : range.a_range();
+          bool merge_op = false;
+          bool copy_op = false;
+
+          // Create a segsort job.
+          if(active) {
+            merge_op = (first != interval.begin) || (interval.count() != count2);
+            copy_op = !merge_op && (!pass || !copy_status_data[partition]);
+
+            // Use the b_end component to store the index of the destination tile.
+            // The actual b_end can be inferred from a_count and the length of 
+            // the input array.
+            range.b_end = partition;
+          }
+
+          // Scan the counts of merges and copies.
+          scan_result_t<int> merge_scan = scan_t().scan(tid, (int)merge_op, 
+            shared.scan);
+          scan_result_t<int> copy_scan = scan_t().scan(tid, (int)copy_op, 
+            shared.scan);
+
+          // Increment the operation counters by the totals.
+          if(!tid) {
+            shared.merge_offset = atomicAdd(&op_counters_data[pass].x, 
+              merge_scan.reduction);
+            shared.copy_offset = atomicAdd(&op_counters_data[pass].y, 
+              copy_scan.reduction);
+          }
+          __syncthreads();
+
+          if(active) {
+            copy_status_data[partition] = !merge_op;
+            if(merge_op)
+              merge_list_data[shared.merge_offset + merge_scan.scan] = range;
+            if(copy_op)
+              copy_list_data[shared.copy_offset + copy_scan.scan] = partition;
+          }
+        };
+        cta_launch<nt>(partition_k, num_partition_ctas, context);
+
+        source_ranges = dest_ranges;
+        num_ranges = div_up(num_ranges, 2);
+        dest_ranges += num_ranges;
+
+        //////////////////////////////////////////////////////////////////////////
+        // Merge or copy unsorted tiles.
+
+        auto merge_k = [=] MGPU_DEVICE(int tid, int cta) {
+          typedef typename launch_t::sm_ptx params_t;
+          enum { nt = params_t::nt, vt = params_t::vt, nv = nt * vt };
+
+          __shared__ union {
+            key_t keys[nv + 1];
+            int indices[nv];
+          } shared;
+
+          merge_range_t range = merge_list_data[cta];
+
+          int tile = range.b_end;
+          int first = nv * tile;
+          int count2 = min((int)nv, count - first);
+          range.b_end = range.b_begin + (count2 - range.a_count());
+
+          int compressed_range = compressed_ranges_data[tile];
+          range_t active = {
+            0x0000ffff & compressed_range,
+            compressed_range>> 16
+          };
+          load_two_streams_shared<nt, vt>(keys_source + range.a_begin, 
+            range.a_count(), keys_source + range.b_begin, range.b_count(),
+            tid, shared.keys);
+
+          // Run a merge path search to find the starting point for each thread
+          // to merge. If the entire warp fits into the already-sorted segments,
+          // we can skip sorting it and leave its keys in shared memory.
+          int list_parity = 1 & (tile>> pass);
+          if(list_parity) active = range_t { 0, active.begin };
+          else active = range_t { active.end, nv };
+
+          int warp_offset = vt * (~(warp_size - 1) & tid);
+          bool sort_warp = list_parity ?
+            (warp_offset < active.end) : 
+            (warp_offset + vt * warp_size >= active.begin);
+    
+          merge_pair_t<key_t, vt> merge;
+          merge_range_t local_range = range.to_local();
+          if(sort_warp) {
+            int diag = vt * tid;
+            int mp = segmented_merge_path(shared.keys, local_range,
+              active, diag, comp);
+
+            // why has partitioned been computed but not used in the next line?
+            merge_range_t partitioned = local_range.partition(mp, diag);
+            merge = segmented_serial_merge<vt>(shared.keys, 
+              local_range.partition(mp, diag), active, comp, false);
+          } else {
+            // just copy as active range is not intersecting i.e. there is no active range
+            iterate<vt>([&](int i) {
+              merge.indices[i] = vt * tid + i;
+            });
+          }
+          __syncthreads();
+
+          // Store keys to global memory.
+          if(sort_warp)
+            reg_to_shared_thread<nt, vt>(merge.keys, tid, shared.keys, false);
+          __syncthreads();
+
+          shared_to_mem<nt, vt>(shared.keys, tid, count2, keys_dest + first);
+
+          if(has_values) {
+            // Transpose the indices from thread order to strided order.
+            array_t<int, vt> indices = reg_thread_to_strided<nt>(merge.indices,
+              tid, shared.indices);
+
+            // Gather the input values and merge into the output values.
+            transfer_two_streams_strided<nt>(vals_source + range.a_begin, 
+              range.a_count(), vals_source + range.b_begin, range.b_count(), 
+              indices, tid, vals_dest + first);
+          }
+        };
+        cta_launch<launch_t>(merge_k, &op_counters_data[pass].x, context);
+
+        auto copy_k = [=] MGPU_DEVICE(int tid, int cta) {
+          typedef typename launch_t::sm_ptx params_t;
+          enum { nt = params_t::nt, vt = params_t::vt, nv = nt * vt };
+
+          int tile = copy_list_data[cta];
+          int first = nv * tile;
+          int count2 = min((int)nv, count - first);
+
+          mem_to_mem<nt, vt>(keys_source + first, tid, count2, 
+            keys_dest + first);
+
+          if(has_values)
+            mem_to_mem<nt, vt>(vals_source + first, tid, count2, 
+              vals_dest + first);
+        };
+        cta_launch<launch_t>(copy_k, &op_counters_data[pass].y, context);
+
+        std::swap(keys_source, keys_dest);
+        std::swap(vals_source, vals_dest);
+      }    
+    
+    // if pass is the last pass
+    // as this is the last pass, there are only two sorted lists separated in to num_ctas
+    if(pass == num_passes-1)
+    {
       int coop = 2<< pass;
 
       //////////////////////////////////////////////////////////////////////////
       // Partition the data within its segmented mergesort list.
 
       enum { nt = 64 };
+      // num_partitions divided by num threads
+      // the partition ctas divide 
+      // num partitions is num_ctas + 1 which I don't understand
+      // I understand, each cta is a separator, we thus get +1 partitions
+      // but nt - 1 as each thread needs start and ending partition?
       int num_partition_ctas = div_up(num_partitions, nt - 1);
-
+      
       auto partition_k = [=] MGPU_DEVICE(int tid, int cta) {
         typedef cta_scan_t<nt, int> scan_t;
         __shared__ union {
@@ -195,18 +470,28 @@ struct segsort_t {
 
         int partition = (nt - 1) * cta + tid;
         int first = nv * partition;
+        // number of elements processed by the current thread
         int count2 = min(nv, count - first);
 
         int mp0 = 0;
+        
+        // tid < nt -1 --> ignore the last thread of each cta
+        // ignore the last partition too (its not necessary that the last thread of a cta gets the last partition)
+
         bool active = (tid < nt - 1) && (partition < num_partitions - 1);
         int range_index = partition>> pass;
 
+        // all threads of the first cta?
         if(partition < num_partitions) {
-
+          
+          // supply the range to a thread
           merge_range_t range = compute_mergesort_range(count, partition, 
             coop, nv);
+          
+          // diag is the elements that are there in 
           int diag = min(nv * partition - range.a_begin, range.total());
 
+          // indices[2]?
           int indices[2] = { 
             min(num_ranges - 1, ~1 & range_index), 
             min(num_ranges - 1, 1 | range_index) 
@@ -398,6 +683,7 @@ struct segsort_t {
       std::swap(keys_source, keys_dest);
       std::swap(vals_source, vals_dest);
     }    
+    }
   }
 };
 
