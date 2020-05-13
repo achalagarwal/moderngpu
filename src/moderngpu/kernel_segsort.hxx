@@ -34,6 +34,7 @@ struct segsort_t {
 
   mem_t<range_t> merge_ranges;
   mem_t<merge_range_t> merge_list;
+  mem_t<int> head_flags_saved;
   mem_t<int> compressed_ranges, copy_list, copy_status;
   mem_t<int2> op_counters;
 
@@ -81,6 +82,7 @@ struct segsort_t {
     // need head flags for fusing kernel
     // the other way to do is recompute head flags from segment heads in the second kernel
     // will benchmark both these methods
+    head_flags_saved = mem_t<int>(num_ctas*launch_t::sm_ptx::nt, context);
     // head_flags = mem_t<int>()
     // just a copied list of compressed ranges presumably
     copy_list = mem_t<int>(num_ctas, context);
@@ -111,7 +113,7 @@ struct segsort_t {
     key_t* keys_blocksort = this->keys_blocksort;
     val_t* vals_blocksort = this->vals_blocksort;
     int* compressed_ranges_data = compressed_ranges.data();
-
+    int* head_flags_saved_data = head_flags_saved.data();
     auto blocksort_k = [=] MGPU_DEVICE(int tid, int cta) {
       typedef typename launch_t::sm_ptx params_t;
       enum { nt = params_t::nt, vt = params_t::vt, nv = nt * vt };
@@ -164,6 +166,7 @@ struct segsort_t {
       // Store the keys and values.
       reg_to_mem_thread<nt, vt>(sorted.keys, tid, tile.count(), 
         keys_blocksort + tile.begin, shared.keys);
+      head_flags_saved_data[tid] = head_flags;
       if(has_values)
         reg_to_mem_thread<nt, vt>(sorted.vals, tid, tile.count(), 
           vals_blocksort + tile.begin, shared.vals);
@@ -201,6 +204,7 @@ struct segsort_t {
     range_t* dest_ranges = merge_ranges.data();
 
     const int* compressed_ranges_data = compressed_ranges.data();
+    const int* head_flags_saved_data = head_flags_saved.data();
     int* copy_status_data = copy_status.data();
     int* copy_list_data = copy_list.data();
     merge_range_t* merge_list_data = merge_list.data();
@@ -231,7 +235,7 @@ struct segsort_t {
           int count2 = min(nv, count - first);
 
           int mp0 = 0;
-          
+
           // tid < nt -1 --> ignore the last thread of each cta
           // ignore the last partition too (its not necessary that the last thread of a cta gets the last partition)
 
@@ -448,7 +452,6 @@ struct segsort_t {
     if(pass == num_passes-1)
     {
       int coop = 2<< pass;
-
       //////////////////////////////////////////////////////////////////////////
       // Partition the data within its segmented mergesort list.
 
@@ -467,6 +470,9 @@ struct segsort_t {
           int partitions[nt + 1];
           struct { int merge_offset, copy_offset; };
         } shared;
+
+        // Tomorrow start from here and use these head flags to generate the boundary aware structures
+        printf("%d, \n", head_flags_saved_data[tid]);
 
         int partition = (nt - 1) * cta + tid;
         int first = nv * partition;
@@ -628,12 +634,14 @@ struct segsort_t {
    
         merge_pair_t<key_t, vt> merge;
         merge_range_t local_range = range.to_local();
+
         if(sort_warp) {
           int diag = vt * tid;
           int mp = segmented_merge_path(shared.keys, local_range,
             active, diag, comp);
 
           merge_range_t partitioned = local_range.partition(mp, diag);
+
           merge = segmented_serial_merge<vt>(shared.keys, 
             local_range.partition(mp, diag), active, comp, false);
         } else {
@@ -660,6 +668,8 @@ struct segsort_t {
             range.a_count(), vals_source + range.b_begin, range.b_count(), 
             indices, tid, vals_dest + first);
         }
+                
+
       };
       cta_launch<launch_t>(merge_k, &op_counters_data[pass].x, context);
 
