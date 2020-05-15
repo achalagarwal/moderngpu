@@ -209,7 +209,7 @@ struct segsort_t {
     int* copy_list_data = copy_list.data();
     merge_range_t* merge_list_data = merge_list.data();
     int2* op_counters_data = op_counters.data();
-
+    // printf("%d number of passes ", num_passes);
     for(int pass = 0; pass < num_passes; ++pass) {
 
       if(pass < num_passes-1){
@@ -471,8 +471,6 @@ struct segsort_t {
           struct { int merge_offset, copy_offset; };
         } shared;
 
-        // Tomorrow start from here and use these head flags to generate the boundary aware structures
-        printf("%d, \n", head_flags_saved_data[tid]);
 
         int partition = (nt - 1) * cta + tid;
         int first = nv * partition;
@@ -581,13 +579,23 @@ struct segsort_t {
         if(active) {
           copy_status_data[partition] = !merge_op;
           if(merge_op)
+          {
+            printf("DOING MERGE");
             merge_list_data[shared.merge_offset + merge_scan.scan] = range;
-          if(copy_op)
+          }
+          else if(copy_op){
             copy_list_data[shared.copy_offset + copy_scan.scan] = partition;
+             printf("DOING COPY");
+          }
+          else{
+            printf("DOING NOTHING");
+          }
         }
+        // printf("xx%d, \n", head_flags_saved_data[tid]);
+        if (!tid)        printf("%d,%d \n", op_counters_data[pass].x, op_counters_data[pass].y);
+
       };
       cta_launch<nt>(partition_k, num_partition_ctas, context);
-
       source_ranges = dest_ranges;
       num_ranges = div_up(num_ranges, 2);
       dest_ranges += num_ranges;
@@ -605,6 +613,7 @@ struct segsort_t {
         } shared;
 
         merge_range_t range = merge_list_data[cta];
+
 
         int tile = range.b_end;
         int first = nv * tile;
@@ -672,6 +681,8 @@ struct segsort_t {
 
       };
       cta_launch<launch_t>(merge_k, &op_counters_data[pass].x, context);
+        // printf("%d, \n", head_flags_saved_data[tid]);
+        printf("%d,%d \n", &op_counters_data[pass].x, &op_counters_data[pass].y);
 
       auto copy_k = [=] MGPU_DEVICE(int tid, int cta) {
         typedef typename launch_t::sm_ptx params_t;

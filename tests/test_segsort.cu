@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
     for(int it = 1; it <= 10; ++it) {
 
       int num_segments = div_up(count, 100);
-      num_segments = int(count/3) -1;
+      num_segments = it*2;
       // mem_t<int> segs = fill_random(0, count - 1, num_segments, true, context);
       mem_t<int> segs = fill_function_cpu<int>(fill_segments_function, num_segments, context);
       std::vector<int> segs_host = from_mem(segs);
