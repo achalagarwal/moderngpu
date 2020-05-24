@@ -197,7 +197,12 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
 
 
   MGPU_HOST_DEVICE quad operator()(quad a, quad b) const  {
-
+    
+    // identity element
+    if(a.left_element ==  -1)
+      return b;
+    if(b.left_element == -1)
+      return a;
     // if(a.best_element == 28 && b.best_element == 53)
 //     struct quad{
 //   int left_count;

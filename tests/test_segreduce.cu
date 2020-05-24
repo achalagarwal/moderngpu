@@ -40,8 +40,8 @@ void test_segreduce(int count, int num_segments, int seed,
     int store=1;
     for(;j<j_end;j++){
       ++counter;
-      data_host[j] = store*2;
-      if(counter>100+store){
+      data_host[j] = store;
+      if(counter>=100+store){
         store+=1;
         counter = 0;
     }

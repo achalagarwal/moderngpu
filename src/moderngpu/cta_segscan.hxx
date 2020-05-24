@@ -19,7 +19,7 @@ struct cta_segscan_t {
 
   union storage_t {
     int delta[num_warps + nt]; 
-    struct { type_t values[2 * nt]; int packed[nt]; };
+    struct { quad values[2 * nt]; int packed[nt]; };
   };
 
   MGPU_DEVICE int find_left_lane(int tid, bool has_head_flag, 
@@ -56,8 +56,8 @@ struct cta_segscan_t {
   }
 
   template<typename op_t = plus_t<type_t> >
-  MGPU_DEVICE segscan_result_t<type_t> segscan(int tid, bool has_head_flag,
-    bool has_carry_out, type_t x, storage_t& storage, type_t init = type_t(),
+  MGPU_DEVICE segscan_result_t<quad> segscan(int tid, bool has_head_flag,
+    bool has_carry_out, quad x, storage_t& storage, quad init = type_t(),
     op_t op = op_t()) const {
 
     if(!has_carry_out) x = init;
@@ -81,7 +81,7 @@ struct cta_segscan_t {
     iterate<s_log2(nt)>([&](int pass) {
       int offset = 1<< pass;
       if(tid_delta >= offset)
-        x = op(x, storage.values[first + tid - offset]);
+        x = op(storage.values[first + tid - offset],x);
       first = nt - first;
       storage.values[first + tid] = x;
       __syncthreads();
@@ -91,7 +91,7 @@ struct cta_segscan_t {
     // the carry-out value as the total.
     bool has_carry_in = tid ? (0 != (1 & storage.packed[tid - 1])) : false;
 
-    segscan_result_t<type_t> result { 
+    segscan_result_t<quad> result { 
       (has_carry_in && tid) ? storage.values[first + tid - 1] : init,
       storage.values[first + nt - 1],
       has_carry_in,
