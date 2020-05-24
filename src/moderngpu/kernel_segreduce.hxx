@@ -16,32 +16,33 @@ namespace detail {
 
 template<int nt, int vt, typename type_t>
 struct cta_segreduce_t {
-  typedef cta_segscan_t<nt, type_t> segscan_t;
+  typedef cta_segscan_t<nt, quad> segscan_t;
   
   union storage_t {
     typename segscan_t::storage_t segscan;
-    type_t values[nt * vt + 1];
+    // quad put_back[segments];
+    type_t values[(nt * vt + 1)*7];
   };
 
   // Values must be stored in storage.values on entry.
   template<typename op_t, typename output_it>
   MGPU_DEVICE void segreduce(merge_range_t merge_range, 
     lbs_placement_t placement, array_t<bool, vt + 1> p, int tid, 
-    int cta, type_t init, op_t op, output_it output, 
-    type_t* carry_out_values, int* carry_out_codes, storage_t& storage) {
+    int cta, quad init, op_t op, output_it output, 
+    quad* carry_out_values, int* carry_out_codes, storage_t& storage) {
 
     int cur_item = placement.a_index;
     int begin_segment = placement.b_index;
     int cur_segment = begin_segment;
     bool carry_in = false;
 
-    const type_t* a_shared = storage.values - merge_range.a_begin;
-    type_t x[vt];
+    const int* a_shared = storage.values - merge_range.a_begin;
+    quad x[vt];
     int segments[vt + 1];
     iterate<vt>([&](int i) {
       if(p[i]) {
         // This is a data node, so accumulate and advance the data ID.
-        x[i] = a_shared[cur_item++];
+        x[i] = {a_shared[cur_item],1,a_shared[cur_item],1,a_shared[cur_item++],1,tid };
         if(carry_in) x[i] = op(x[i - 1], x[i]);
         carry_in = true;
       } else {
@@ -56,6 +57,7 @@ struct cta_segreduce_t {
     bool overwrite = (nt - 1 == tid) && (!p[vt - 1] && p[vt]);
     if(nt - 1 == tid) p[vt] = false;
     if(!p[vt]) ++cur_segment;
+    // printf("nt: %d, vt: %d", nt, vt);
     segments[vt] = cur_segment;
     overwrite = __syncthreads_or(overwrite);
 
@@ -65,14 +67,15 @@ struct cta_segreduce_t {
     bool has_carry_out = p[vt - 1];
 
     // Compute the carry-in for each thread.
-    segscan_result_t<type_t> result = segscan_t().segscan(tid, has_head_flag,
+    segscan_result_t<quad> result = segscan_t().segscan(tid, has_head_flag,
       has_carry_out, x[vt - 1], storage.segscan, init, op);
 
     // Add the carry-in back into each value and recompute the reductions.
-    type_t* x_shared = storage.values - placement.range.b_begin;
+    quad* x_shared = ((quad*)storage.values - placement.range.b_begin);
     carry_in = result.has_carry_in && p[0];
     iterate<vt>([&](int i) {
       if(segments[i] < segments[i + 1]) {
+        
         // We've hit the end of this segment. Store the reduction to shared
         // memory.
         if(carry_in) x[i] = op(result.scan, x[i]);
@@ -106,17 +109,17 @@ template<typename output_it, typename type_t, typename op_t>
 void segreduce_fixup(output_it output, const type_t* values,
   const int* codes, int count, op_t op, type_t init,
   context_t& context) {
-
+  
   enum { nt = 512 };
   int num_ctas = div_up(count, nt);
 
-  mem_t<type_t> carry_out(num_ctas, context);
+  mem_t<quad> carry_out(num_ctas, context);
   mem_t<int> codes_out(num_ctas, context);
-  type_t* carry_out_data = carry_out.data();
+  quad* carry_out_data = carry_out.data();
   int* codes_data = codes_out.data();
 
   auto k_fixup = [=]MGPU_DEVICE(int tid, int cta) {
-    typedef cta_segscan_t<nt, type_t> segscan_t;
+    typedef cta_segscan_t<nt, quad> segscan_t;
     __shared__ struct {
       bool head_flags[nt];
       typename segscan_t::storage_t segscan;
@@ -138,7 +141,7 @@ void segreduce_fixup(output_it output, const type_t* values,
     int code0 = (gid - 1 >= 0 && gid - 1 < count) ? codes[gid - 1] : -1;
     int code1 = (gid < count) ? codes[gid] : -1;
     int code2 = (gid + 1 < count) ? codes[gid + 1] : -1;
-    type_t value = (gid < count) ? values[gid] : init;
+    quad value = (gid < count) ? values[gid] : init;
 
     int seg0 = code0>> 1;
     int seg1 = code1>> 1;
@@ -152,14 +155,14 @@ void segreduce_fixup(output_it output, const type_t* values,
     // for the first thread in the reduction.
     shared.head_flags[tid] = has_head_flag;
 
-    segscan_result_t<type_t> result = segscan_t().segscan(tid, has_head_flag,
+    segscan_result_t<quad> result = segscan_t().segscan(tid, has_head_flag,
       has_carry_out, value, shared.segscan, init, op);
 
     bool carry_out_written = false;
     if(-1 != seg1 && (has_end_flag || nt - 1 == tid)) {
       // This is a valid reduction.
       if(result.has_carry_in) 
-        value = op(value, result.scan);
+        value = op(result.scan, value);
 
       if(0 == result.left_lane && !shared.head_flags[result.left_lane]) {
         carry_out_data[cta] = value;
@@ -168,7 +171,7 @@ void segreduce_fixup(output_it output, const type_t* values,
       } else {
         int left_code = codes[tile.begin + result.left_lane - 1];
         if(0 == (1 & left_code))     // Add in the value already stored.
-          value = op(value, output[seg1]);
+          value = op(output[seg1], value);
         output[seg1] = value;
       }
     }
@@ -191,9 +194,9 @@ void segreduce_fixup(output_it output, const type_t* values,
 // require explicit materialization of the load-balancing search.
 
 template<typename launch_arg_t = empty_t, typename input_it,
-  typename segments_it, typename output_it, typename op_t, typename type_t>
+  typename segments_it, typename output_it, typename op_t, typename type_t=int>
 void segreduce(input_it input, int count, segments_it segments, 
-  int num_segments, output_it output, op_t op, type_t init, 
+  int num_segments, output_it output, op_t op, quad init, 
   context_t& context) {
 
   typedef typename conditional_typedef_t<launch_arg_t, 
@@ -207,19 +210,19 @@ void segreduce(input_it input, int count, segments_it segments,
   cta_dim_t cta_dim = launch_t::cta_dim(context);
   int num_ctas = cta_dim.num_ctas(count + num_segments);
 
-  mem_t<type_t> carry_out(num_ctas, context);
+  mem_t<quad> carry_out(num_ctas, context);
   mem_t<int> codes(num_ctas, context);
-  type_t* carry_out_data = carry_out.data();
+  quad* carry_out_data = carry_out.data();
   int* codes_data = codes.data();
 
   mem_t<int> mp = load_balance_partitions(count, segments, num_segments,
     cta_dim.nv(), context);
   const int* mp_data = mp.data();
-
+  // printf("mp_data , first two values: %d, %d\n:", mp_data[0], mp_data[1]);
   auto k_reduce = [=]MGPU_DEVICE(int tid, int cta) {
     typedef typename launch_t::sm_ptx params_t;
     enum { nt = params_t::nt, vt = params_t::vt, vt0 = params_t::vt0 };
-    typedef detail::cta_segreduce_t<nt, vt, type_t> segreduce_t;
+    typedef detail::cta_segreduce_t<nt, vt, int> segreduce_t;
 
     __shared__ union {
       typename segreduce_t::storage_t segreduce;
@@ -227,9 +230,18 @@ void segreduce(input_it input, int count, segments_it segments,
       type_t indices[nt * vt + 2];
     } shared;
 
+
+    // lass pass of seg_sort finishes here
+    // we have the bit field signifying the segment for the threads
+    // this is where the fusion takes place 
+
+    // check if this merge_range is same or different than the compute_mergesort_range
     merge_range_t merge_range = compute_merge_range(count, num_segments, 
       cta, nt * vt, mp_data[cta], mp_data[cta + 1]);
 
+
+    // if its different, we might not be able to remove the following mem_to_shared call
+      
     // Cooperatively load values from input into shared.
     mem_to_shared<nt, vt, vt0>(input + merge_range.a_begin, tid, 
       merge_range.a_count(), shared.segreduce.values);
@@ -270,9 +282,9 @@ void segreduce(input_it input, int count, segments_it segments,
 ////////////////////////////////////////////////////////////////////////////////
 
 template<typename launch_arg_t = empty_t, typename func_t,
-  typename segments_it, typename output_it, typename op_t, typename type_t>
+  typename segments_it, typename output_it, typename op_t, typename type_t=int>
 void transform_segreduce(func_t f, int count, segments_it segments, 
-  int num_segments, output_it output, op_t op, type_t init, 
+  int num_segments, output_it output, op_t op, quad init, 
   context_t& context) {
 
   segreduce<launch_arg_t>(make_load_iterator<type_t>(f), count, segments, 

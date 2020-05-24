@@ -40,9 +40,18 @@ void test_segreduce(int count, int num_segments, int seed,
     int length = j_end - j;
     int store=1;
     for(;j<j_end;j++){
+<<<<<<< HEAD
       // ++counter;
       data_host[j] = counter++<length/2?1:2;
       
+=======
+      ++counter;
+      data_host[j] = store;
+      if(counter>=100+store){
+        store+=1;
+        counter = 0;
+    }
+>>>>>>> 1d0c6f6
    
       // create a sorted list in this loop
       // if(dist(mt19937)%2 == 0){
