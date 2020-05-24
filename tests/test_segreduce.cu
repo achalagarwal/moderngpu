@@ -37,14 +37,12 @@ void test_segreduce(int count, int num_segments, int seed,
       j_end = segments_host[i+1];
     }
     int counter = 0;
+    int length = j_end - j;
     int store=1;
     for(;j<j_end;j++){
-      ++counter;
-      data_host[j] = store*2;
-      if(counter>100+store){
-        store+=1;
-        counter = 0;
-    }
+      // ++counter;
+      data_host[j] = counter++<length/2?1:2;
+      
    
       // create a sorted list in this loop
       // if(dist(mt19937)%2 == 0){
@@ -107,8 +105,8 @@ int main(int argc, char** argv) {
   standard_context_t context;
 
   for(int test = 0; test < 1; ++test) {
-    int count =   100000000;
-    int seg_size =  1000000;
+    int count =   1000;
+    int seg_size =  100;
     test_segreduce(count, div_up(count, seg_size), test, context);
   }
 
