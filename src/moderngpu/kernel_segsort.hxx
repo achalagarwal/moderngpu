@@ -4,7 +4,7 @@
 #include "search.hxx"
 #include "cta_segsort.hxx"
 #include "cta_scan.hxx"
-
+#include "kernel_segreduce.hxx"
 BEGIN_MGPU_NAMESPACE
 
 namespace detail {
@@ -735,6 +735,21 @@ void segmented_sort_indices(key_t* keys, int* indices, int count,
   segsort.template blocksort_segments<true>(keys, counting_iterator_t<int>(), 
     segments, num_segments);
   segsort.merge_passes();
+}
+
+// Key-value mergesort followed by a segreduce
+template<typename launch_arg_t = empty_t, typename val_t,typename key_t, typename seg_it,  typename output_it, typename op_t, typename comp_t>
+void segmented_sort_reduce(key_t* keys, val_t* indices, int count, seg_it segments, int num_segments, comp_t comp,output_it output, op_t op, quad init, context_t& context) {
+
+  detail::segsort_t<launch_arg_t, key_t, int, comp_t> 
+    segsort(keys, indices, count, comp, context);
+
+  segsort.template blocksort_segments<true>(keys, counting_iterator_t<int>(), 
+    segments, num_segments);
+  segsort.merge_passes();
+  segreduce<launch_arg_t>(keys, count, segments, 
+  num_segments, output, op, init, context);
+
 }
 
 // Key-only segmented sort

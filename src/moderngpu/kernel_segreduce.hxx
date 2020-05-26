@@ -75,10 +75,12 @@ struct cta_segreduce_t {
     quad* x_shared = ((quad*)storage.values - placement.range.b_begin);
     carry_in = result.has_carry_in && p[0];
     iterate<vt>([&](int i) {
-      if(segments[i] < segments[i + 1]) {
+      if(segments[i] < segments[i + 1] && p[i]) {
         
         // We've hit the end of this segment. Store the reduction to shared
         // memory.
+        // need to solve a bug when using sort before reduce
+        // test if this error is there when using reduce standalone
         if(carry_in) x[i] = op(result.scan, x[i]);
         x_shared[segments[i]] = x[i];
         carry_in = false;

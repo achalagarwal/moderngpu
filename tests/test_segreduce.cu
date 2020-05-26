@@ -111,8 +111,8 @@ int main(int argc, char** argv) {
   standard_context_t context;
 
   for(int test = 0; test < 1; ++test) {
-    int count =   100000000;
-    int seg_size =  1000000;
+    int count =   100;
+    int seg_size =  20;
     test_segreduce(count, div_up(count, seg_size), test, context);
   }
 
