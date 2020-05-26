@@ -42,12 +42,13 @@ struct cta_segreduce_t {
     iterate<vt>([&](int i) {
       if(p[i]) {
         // This is a data node, so accumulate and advance the data ID.
-        x[i] = {a_shared[cur_item],1,a_shared[cur_item],1,a_shared[cur_item++],1,tid };
+        x[i] = {a_shared[cur_item],1,a_shared[cur_item],1,a_shared[cur_item],1,tid };
+        cur_item++;
         if(carry_in) x[i] = op(x[i - 1], x[i]);
         carry_in = true;
       } else {
         // This is a segment node, so advance the segment ID.
-        x[i] = init;
+        x[i] = {a_shared[cur_item],1,a_shared[cur_item],1,a_shared[cur_item],1,tid };
         ++cur_segment;
         carry_in = false;
       }
@@ -162,6 +163,7 @@ void segreduce_fixup(output_it output, const type_t* values,
     if(-1 != seg1 && (has_end_flag || nt - 1 == tid)) {
       // This is a valid reduction.
       if(result.has_carry_in) 
+        // value = op(result.scan, value);
         value = op(result.scan, value);
 
       if(0 == result.left_lane && !shared.head_flags[result.left_lane]) {

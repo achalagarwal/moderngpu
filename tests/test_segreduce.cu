@@ -20,10 +20,13 @@ void test_segreduce(int count, int num_segments, int seed,
   segments_host[0] = 0;     // first segment must start at zero.
   for(int i = 1; i < num_segments; ++i){
     segments_host[i] = dist(mt19937);
-    printf("Segment length at %d : %d\n", i, segments_host[i]);
+    // printf("Segment length at %d : %d\n", i, segments_host[i]);
   }
   std::sort(segments_host.begin() + 1, segments_host.end());
-
+  for(int i = 1; i < num_segments; ++i){
+    // segments_host[i] = dist(mt19937);
+    printf("Segment length at %d : %d\n", i, segments_host[i]);
+  }
   mem_t<int> segments = to_mem(segments_host, context);
   mem_t<quad> results(num_segments, context);
 
@@ -40,18 +43,12 @@ void test_segreduce(int count, int num_segments, int seed,
     int length = j_end - j;
     int store=1;
     for(;j<j_end;j++){
-<<<<<<< HEAD
-      // ++counter;
-      data_host[j] = counter++<length/2?1:2;
-      
-=======
       ++counter;
       data_host[j] = store;
-      if(counter>=100+store){
+      if(counter>=10+store){
         store+=1;
         counter = 0;
     }
->>>>>>> 1d0c6f6
    
       // create a sorted list in this loop
       // if(dist(mt19937)%2 == 0){
@@ -114,7 +111,7 @@ int main(int argc, char** argv) {
   standard_context_t context;
 
   for(int test = 0; test < 1; ++test) {
-    int count =   1000;
+    int count =   100000;
     int seg_size =  100;
     test_segreduce(count, div_up(count, seg_size), test, context);
   }

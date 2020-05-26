@@ -254,6 +254,9 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
       // else if(a.current_count <= a.best_count){
       // we don't need to change anything}
 
+      if (b.right_element == a.right_element){
+        b.right_count += a.right_count;
+      }
     
     }
     // they don't overlap
@@ -269,6 +272,7 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
       a.left_count = a.best_count;
     }
     // update the right
+    // if b.right_element == b.left_element or even b.best_element
     a.right_element = b.right_element;
     if (a.right_element == a.best_element){
       a.right_count = a.best_count;
@@ -302,7 +306,9 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
       }
       // else if(b.current_count <=b.best_count){
       // we don't need to change anything}
-
+      if (a.right_element == b.right_element){
+          a.right_count += b.right_count;
+        }
     
     }
     // they don't overlap
