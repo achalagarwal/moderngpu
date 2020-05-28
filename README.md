@@ -1,5 +1,5 @@
 
-# Forked from moderngpu 2.0 (currently detatched to the fork) 
+# Forked from moderngpu 2.0 (currently detatched from the original repo) 
 **(c) 2016 [Sean Baxter](http://twitter.com/moderngpu)** 
 
 **You can drop me a line [here](mailto:moderngpu@gmail.com)**
