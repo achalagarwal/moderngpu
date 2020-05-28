@@ -17,16 +17,35 @@ struct shfl_reduce_t {
 
   template<typename op_t = plus_t<type_t> >
   MGPU_DEVICE type_t reduce(int lane, type_t x, int count, op_t op = op_t()) {
+    // const int passes = s_log2(count);
     if(count == group_size) { 
       iterate<num_passes>([&](int pass) {
         int offset = 1<< pass;
-        x = shfl_down_op(x, offset, op, group_size);
+
+        if((lane + offset) % group_size > lane){
+          x = op(x, shfl_xor(-1, x, offset));
+        }
+        else{
+          x = op(shfl_xor(-1, x, offset),x);
+        }
+        // for (int i=1; i<32; i*=2)
+        // check for which value is the smaller one (the left and the right as the operator is not yet commutative)
+        
+        // x = shfl_down_op(x, offset, op, group_size);
       });
     } else {
       iterate<num_passes>([&](int pass) {
         int offset = 1<< pass;
-        type_t y = shfl_down(x, offset, group_size);
-        if(lane + offset < count) x = op(x, y);
+        // type_t y = shfl_down(x, offset, group_size);
+      
+        if(lane + offset < count){
+          if((lane + offset) % group_size > lane){
+          x = op(x, shfl_xor(-1, x, offset));
+        }
+        else{
+          x = op(shfl_xor(-1, x, offset),x);
+        }
+        }
       });
     }
     return x;
@@ -36,7 +55,7 @@ struct shfl_reduce_t {
 // cta_reduce_t returns the reduction of all inputs for thread 0, and returns
 // type_t() for all other threads. This behavior saves a broadcast.
 
-template<int nt, typename type_t>
+template<int nt, typename type_t, typename quad_t>
 struct cta_reduce_t {
 
   enum { 
@@ -48,21 +67,28 @@ struct cta_reduce_t {
   static_assert(0 == nt % warp_size, 
     "cta_reduce_t requires num threads to be a multiple of warp_size (32)");
 
+  template<typename stype_t>
   struct storage_t {
-    struct { type_t data[max(nt, 2 * group_size)]; };
+    struct { stype_t data[max(nt, 2 * group_size)]; };
   };
 
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 300
 
-  typedef shfl_reduce_t<type_t, group_size> group_reduce_t;
+  typedef shfl_reduce_t<quad_t, group_size> group_reduce_t;
 
-  template<typename op_t = plus_t<type_t> >
-  MGPU_DEVICE type_t reduce(int tid, type_t x, storage_t& storage, 
+  template<typename op_t = plus_t<type_t>, typename stype_t>
+  MGPU_DEVICE quad_t reduce(int tid, quad_t x, storage_t<stype_t>& storage, 
     int count = nt, op_t op = op_t(), bool all_return = true) const {
+
+      // all the threads store their data into shared memory
+      // the data is the reduced quad_t
 
     // Store your data into shared memory.
     storage.data[tid] = x;
     __syncthreads();
+
+    // only the threads of a single group reduce the above data
+    // and they do it individually
 
     if(tid < group_size) {
       // Each thread scans within its lane.
@@ -70,6 +96,8 @@ struct cta_reduce_t {
         if(i > 0) x = op(x, storage.data[j]);
       }, tid, count);
 
+
+      // now there are only group_size number of quad_t remaining
       // Cooperative reduction.
       x = group_reduce_t().reduce(tid, x, min(count, (int)group_size), op);
 
@@ -86,8 +114,8 @@ struct cta_reduce_t {
 
 #else
 
-  template<typename op_t = plus_t<type_t> >
-  MGPU_DEVICE type_t reduce(int tid, type_t x, storage_t& storage, 
+  template<typename op_t = plus_t<type_t>,  typename stype_t >
+  MGPU_DEVICE type_t reduce(int tid, type_t x, storage_t<stype_t>& storage, 
     int count = nt, op_t op = op_t(), bool all_return = true) const {
 
     // Store your data into shared memory.
