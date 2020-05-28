@@ -181,13 +181,8 @@ struct quad{
   int left_element;
   int left_count;
 
-<<<<<<< HEAD
-  int current_element;
-  int current_count;
-=======
   // int current_element;
   // int current_count;
->>>>>>> seg_reduce
   
   int best_element;
   int best_count;
@@ -195,19 +190,12 @@ struct quad{
   int right_element;
   int right_count;
   
-<<<<<<< HEAD
-=======
   int tracker;
->>>>>>> seg_reduce
 };
 template<typename type_t=int>
 struct perform_t: public std::binary_function<quad, type_t, quad> {
 
 
-<<<<<<< HEAD
-  MGPU_HOST_DEVICE quad operator()(quad a, quad b) const {
-
-=======
   MGPU_HOST_DEVICE quad operator()(quad a, quad b) const  {
     
     // identity element
@@ -216,7 +204,6 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
     if(b.left_element == -1)
       return a;
     // if(a.best_element == 28 && b.best_element == 53)
->>>>>>> seg_reduce
 //     struct quad{
 //   int left_count;
 //   int left_element;
@@ -241,20 +228,6 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
     // we send a after modifying it
 
     // update best
-<<<<<<< HEAD
-    if (b.left_element == a.right_element){
-      // the boundaries overlap
-      // so we can add the counts
-      a.current_count = a.right_count + b.left_count;
-      if (a.current_count > a.best_count && a.current_count >= b.best_count){
-        a.best_element = a.right_element;
-        a.best_count = a.current_count;
-      }
-        
-      else if(a.current_count < b.best_count){
-        a.best_element = b.best_element;
-        a.best_count = b.best_count;
-=======
     // assert(b.left_element>=a.right_element);
 
     if(a.left_element < b.right_element){
@@ -277,31 +250,21 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
       else if(b.left_element < b.best_count){
       a.best_element = a.best_count >= b.best_count?a.best_element:b.best_element;
       a.best_count = max(a.best_count, b.best_count);
->>>>>>> seg_reduce
       }
       // else if(a.current_count <= a.best_count){
       // we don't need to change anything}
 
-<<<<<<< HEAD
-=======
       if (b.right_element == a.right_element){
         b.right_count += a.right_count;
       }
->>>>>>> seg_reduce
     
     }
     // they don't overlap
     // which means we need to compare the two bests for the bests
-<<<<<<< HEAD
-    else{
-      a.best_count = max(a.best_count, b.best_count);
-      a.best_element = a.best_element >= b.best_element?a.best_element:b.best_element;
-=======
     else if (b.left_element != a.right_element){
       //  if(a.best_element == 28 && b.best_element==43)printf("Ever here?");
       a.best_element = a.best_count >= b.best_count?a.best_element:b.best_element;
       a.best_count = max(a.best_count, b.best_count);
->>>>>>> seg_reduce
     }
 
     // update the left
@@ -309,10 +272,7 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
       a.left_count = a.best_count;
     }
     // update the right
-<<<<<<< HEAD
-=======
     // if b.right_element == b.left_element or even b.best_element
->>>>>>> seg_reduce
     a.right_element = b.right_element;
     if (a.right_element == a.best_element){
       a.right_count = a.best_count;
@@ -323,8 +283,6 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
     
     return a;
   }
-<<<<<<< HEAD
-=======
   else{
        if (a.left_element == b.right_element){
       // after this condition we will never use b.left_element
@@ -377,7 +335,6 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
     return b;
   }
   }
->>>>>>> seg_reduce
 
 
   MGPU_HOST_DEVICE quad operator()(quad a, int b) const {
@@ -403,35 +360,12 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
     // the element will always be >= than left element
     // why is this true?
     // because the quad_t was initialised with the left most element
-<<<<<<< HEAD
-
-=======
     // assert(b>=a.right_element);
->>>>>>> seg_reduce
     if (b == a.left_element){
       // then the current element is also equal to be
       // as thats how the struct was initialised
       // so we increment both the counts;
       a.left_count++;
-<<<<<<< HEAD
-      a.current_count++;
-    }
-
-    else if( b == a.current_element){
-      // then just the current element is same
-      a.current_count++;
-    }
-    else if( b != a.current_element){
-      // then we move on to a new element
-      a.best_element = a.current_count > a.best_count? a.current_element:a.best_element;
-      // assuming the max is faster than using an if
-      a.best_count = max(a.current_count, a.best_count);
-      // a.best_count = a.current_count > a.best_count? a.current_count:a.best_count;
-      assert(a.best_count == 1);
-
-      a.current_count = 1;
-      a.current_element = b;
-=======
       a.right_count++;
       if(b == a.best_element) a.best_count++;
     }
@@ -451,18 +385,12 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
 
       a.right_count = 1;
       a.right_element = b;
->>>>>>> seg_reduce
     }
 
     // we always change the right element and count
     // as there is no way to detect when we are at the last element in the list
-<<<<<<< HEAD
-    a.right_element = a.current_element;
-    a.right_count = a.current_count;
-=======
     // a.right_element = a.current_element;
     // a.right_count = a.current_count;
->>>>>>> seg_reduce
 
     return a;
   }
@@ -470,78 +398,6 @@ struct perform_t: public std::binary_function<quad, type_t, quad> {
 };
 
 
-<<<<<<< HEAD
-template<typename quad_t, typename type_t=int>
-struct perform_qt: public std::binary_function<quad_t, quad_t, quad_t> {
-
-  MGPU_HOST_DEVICE quad_t operator()(quad_t a, quad_t b) const {
-
-//     struct quad{
-//   int left_count;
-//   int left_element;
-
-//   int current_element;
-//   int current_count;
-
-//   int best_element;
-//   int best_count;
-
-//   int right_count;
-//   int right_element;
-// };
-    // b is the element to the right of a
-
-    // we need to generate a quad again
-    // but the quad will only have 6 useful entries
-    // left, best, right
-
-    //l1, b1, r1 --- l2, b2, r2
-    //l3, b3, r3
-    // we send a after modifying it
-
-    // update best
-    if (b.left_element == a.right_element){
-      // the boundaries overlap
-      // so we can add the counts
-      a.current_count = a.right_count + b.left_count;
-      if (a.current_count > a.best_count && a.current_count >= b.best_count){
-        a.best_element = a.right_element;
-        a.best_count = a.best_count;
-      }
-        
-      else if(a.current_count < b.best_count){
-        a.best_element = b.best_element;
-        a.best_count = b.best_count;
-      }
-      // else if(a.current_count <= a.best_count){
-      // we don't need to change anything}
-
-    
-    }
-    // they don't overlap
-    // which means we need to compare the two bests for the bests
-    else{
-      a.best_count = max(a.best_count, b.best_count);
-      a.best_element = a.best_element >= b.best_element?a.best_element:b.best_element;
-    }
-
-    // update the left
-    if (a.left_element == a.best_element){
-      a.left_count = a.best_count;
-    }
-    // update the right
-    a.right_element = b.right_element;
-    if (a.right_element == a.best_count){
-      a.right_count = a.best_count;
-    }
-    else{
-      a.right_count = b.right_count;
-    }
-    
-    return a;
-  }
-};
-=======
 // template<typename quad_t, typename type_t=int>
 // struct perform_qt: public std::binary_function<quad_t, quad_t, quad_t> {
 
@@ -619,7 +475,6 @@ struct perform_qt: public std::binary_function<quad_t, quad_t, quad_t> {
 //     return a;
 //   }
 // };
->>>>>>> seg_reduce
 
 // template<typename type_t>
 
