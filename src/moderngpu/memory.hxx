@@ -58,6 +58,8 @@ cudaError_t htod(type_t* dest, const std::vector<type_t>& source) {
 ////////////////////////////////////////////////////////////////////////////////
 // Memory functions on mem_t.
 
+
+
 template<typename type_t>
 mem_t<type_t> to_mem(const std::vector<type_t>& data, context_t& context) {
   mem_t<type_t> mem(data.size(), context);
@@ -72,6 +74,18 @@ std::vector<type_t> from_mem(const mem_t<type_t>& mem) {
   cudaError_t result = dtoh(host, mem.data(), mem.size());
   if(cudaSuccess != result) throw cuda_exception_t(result);
   return host;
+}
+
+
+template<typename type_t, typename func_t>
+mem_t<type_t> fill_function_cpu(func_t f, size_t count, context_t& context) {
+  mem_t<type_t> mem(count, context);
+  std::vector<type_t> p(count);
+  // type_t* p = mem.data();
+  for(int index=0; index<count; index++){
+    p[index] = f(index);
+  }
+  return to_mem<type_t>(p, context);
 }
 
 template<typename type_t, typename func_t>
