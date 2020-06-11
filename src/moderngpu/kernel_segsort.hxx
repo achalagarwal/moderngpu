@@ -152,11 +152,12 @@ struct segsort_t {
         iterate<vt>([&](int i) {
           unsorted.vals[i] = vals[tile.begin + vt * tid + i];
         });
-      } else if(has_values) {
-        // If we're storing actual values, stage through shared memory.
-        unsorted.vals = mem_to_reg_thread<nt, vt>(vals + tile.begin, tid,
-          tile.count(), shared.vals);
       }
+      //  else if(has_values) {
+      //   // If we're storing actual values, stage through shared memory.
+      //   unsorted.vals = mem_to_reg_thread<nt, vt>(vals + tile.begin, tid,
+      //     tile.count(), shared.vals);
+      // }
 
       // Blocksort.
       range_t active { };
@@ -167,9 +168,9 @@ struct segsort_t {
       reg_to_mem_thread<nt, vt>(sorted.keys, tid, tile.count(), 
         keys_blocksort + tile.begin, shared.keys);
       head_flags_saved_data[tid] = head_flags;
-      if(has_values)
-        reg_to_mem_thread<nt, vt>(sorted.vals, tid, tile.count(), 
-          vals_blocksort + tile.begin, shared.vals);
+      // if(has_values)
+      //   reg_to_mem_thread<nt, vt>(sorted.vals, tid, tile.count(), 
+      //     vals_blocksort + tile.begin, shared.vals);
 
       // Store the active range for the entire CTA. These are used by the 
       // segmented partitioning kernels.
@@ -413,16 +414,16 @@ struct segsort_t {
 
           shared_to_mem<nt, vt>(shared.keys, tid, count2, keys_dest + first);
 
-          if(has_values) {
-            // Transpose the indices from thread order to strided order.
-            array_t<int, vt> indices = reg_thread_to_strided<nt>(merge.indices,
-              tid, shared.indices);
+          // if(has_values) {
+          //   // Transpose the indices from thread order to strided order.
+          //   array_t<int, vt> indices = reg_thread_to_strided<nt>(merge.indices,
+          //     tid, shared.indices);
 
-            // Gather the input values and merge into the output values.
-            transfer_two_streams_strided<nt>(vals_source + range.a_begin, 
-              range.a_count(), vals_source + range.b_begin, range.b_count(), 
-              indices, tid, vals_dest + first);
-          }
+          //   // Gather the input values and merge into the output values.
+          //   transfer_two_streams_strided<nt>(vals_source + range.a_begin, 
+          //     range.a_count(), vals_source + range.b_begin, range.b_count(), 
+          //     indices, tid, vals_dest + first);
+          // }
         };
         cta_launch<launch_t>(merge_k, &op_counters_data[pass].x, context);
 
@@ -437,9 +438,9 @@ struct segsort_t {
           mem_to_mem<nt, vt>(keys_source + first, tid, count2, 
             keys_dest + first);
 
-          if(has_values)
-            mem_to_mem<nt, vt>(vals_source + first, tid, count2, 
-              vals_dest + first);
+          // if(has_values)
+          //   mem_to_mem<nt, vt>(vals_source + first, tid, count2, 
+          //     vals_dest + first);
         };
         cta_launch<launch_t>(copy_k, &op_counters_data[pass].y, context);
 
@@ -667,16 +668,16 @@ struct segsort_t {
 
         shared_to_mem<nt, vt>(shared.keys, tid, count2, keys_dest + first);
 
-        if(has_values) {
-          // Transpose the indices from thread order to strided order.
-          array_t<int, vt> indices = reg_thread_to_strided<nt>(merge.indices,
-            tid, shared.indices);
+        // if(has_values) {
+        //   // Transpose the indices from thread order to strided order.
+        //   array_t<int, vt> indices = reg_thread_to_strided<nt>(merge.indices,
+        //     tid, shared.indices);
 
-          // Gather the input values and merge into the output values.
-          transfer_two_streams_strided<nt>(vals_source + range.a_begin, 
-            range.a_count(), vals_source + range.b_begin, range.b_count(), 
-            indices, tid, vals_dest + first);
-        }
+        //   // Gather the input values and merge into the output values.
+        //   transfer_two_streams_strided<nt>(vals_source + range.a_begin, 
+        //     range.a_count(), vals_source + range.b_begin, range.b_count(), 
+        //     indices, tid, vals_dest + first);
+        // }
                 
 
       };
@@ -695,9 +696,9 @@ struct segsort_t {
         mem_to_mem<nt, vt>(keys_source + first, tid, count2, 
           keys_dest + first);
 
-        if(has_values)
-          mem_to_mem<nt, vt>(vals_source + first, tid, count2, 
-            vals_dest + first);
+        // if(has_values)
+        //   mem_to_mem<nt, vt>(vals_source + first, tid, count2, 
+        //     vals_dest + first);
       };
       cta_launch<launch_t>(copy_k, &op_counters_data[pass].y, context);
 
@@ -750,6 +751,37 @@ void segmented_sort_reduce(key_t* keys, val_t* indices, int count, seg_it segmen
   segreduce<launch_arg_t>(keys, count, segments, 
   num_segments, output, op, init, context);
 
+}
+
+// Key-value mergesort followed by a segreduce
+// template<typename launch_arg_t = empty_t, typename val_t,typename key_t, typename seg_it, typename op_t, typename comp_t>
+template<typename comp_t>
+int* segmented_mode(int* keys, int count, int* segments, int num_segments, comp_t comp, context_t& context) {
+  
+
+
+  detail::segsort_t<empty_t, int, int, comp_t> 
+    segsort(keys,  (int*)nullptr, count, comp, context);
+  segsort.template blocksort_segments<true>(keys, counting_iterator_t<int>(), 
+    segments, num_segments);
+  segsort.merge_passes();
+  mem_t<quad> results(num_segments, context);
+  // output_it output = mem_t<quad> results(num_segments, context);
+  quad init = {-1,0,-1,0,-1,0,-1};
+
+  segreduce<empty_t>(keys, count, segments, 
+  num_segments, results.data(), perform_t<quad>(), init, context);
+  std::vector<quad> results_host = from_mem(results);
+  int* answer_host = (int*)malloc(sizeof(int)*num_segments);
+
+  for(int i = 0;i<num_segments;i++){
+    // printf("%d", segments_host[i]);
+    // printf("%d", results_host[i].best_count);
+    answer_host[i] = results_host[i].best_element;
+  }
+  printf("whats happening");
+
+  return answer_host;
 }
 
 // Key-only segmented sort
