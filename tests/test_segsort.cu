@@ -5,7 +5,7 @@ using namespace mgpu;
 
 
 int fill_values_function(int index){
-  return index % 3;
+  return index*2;
 }
 int fill_segments_function(int index){
   return (index) * 12;
@@ -51,15 +51,17 @@ int main(int argc, char** argv) {
         printf("Segment length at %d : %d\n", i, segs_host[i]);
       }
       // data , values, count, segs (sorted ascending list of numbers), num_segs
-      segmented_sort_reduce(data.data(), values.data(), count, segs.data(), 
-        num_segments, less_t<int>(), results.data(), perform_t<quad>(), init, context);
-
+      // segmented_sort_reduce(data.data(), values.data(), count, segs.data(), 
+      //   num_segments, less_t<int>(), results.data(), perform_t<quad>(), init, context);
+        int* results_host = segmented_mode(data.data(), count, segs.data(), 
+        num_segments, less_t<int>(), context);
       std::vector<int> ref = cpu_segsort(host_data, segs_host);
       std::vector<int> sorted = from_mem(data);
-      std::vector<quad> results_host = from_mem(results);
+      // std::vector<int> results_host = from_mem(segs);
       
       for(int i = 0;i<num_segments-1;i++){
-        printf("The segment length at i:%d is %d and output received is %d with count: %d \n", i, segs_host[i+1]-segs_host[i], results_host[i].best_element, results_host[i].best_count);
+        // printf("The segment length at i:%d is %d and output received is %d with count: %d \n", i, segs_host[i+1]-segs_host[i], results_host[i].best_element, results_host[i].best_count);
+        printf("The segment length at i:%d is %d and output received is %d \n", i, segs_host[i+1]-segs_host[i], results_host[i]);
       }
 
       // Check that the indices are correct.
